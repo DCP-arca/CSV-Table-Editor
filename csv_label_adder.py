@@ -116,12 +116,13 @@ class CSVLabelAdder:
 
         result.to_csv(dst,
                       sep='|',
-                      index=False)
+                      index=False,
+                      encoding="euc-kr")
 
 
 if __name__ == "__main__":
     a = CSVLabelAdder()
-    a.load("target.csv")
+    a.load("test_target.csv")
     a.select("PNILP", 40000, 45000)
     print(a.return_select())
     # a.add_and_save("result.csv")
