@@ -82,6 +82,7 @@ class CSVTableView(QTableView):
 
     def refresh_tableview_width(self):
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
+        self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def set_data(self, data):
         self.model = PandasModel(data, self.page_size)
@@ -100,20 +101,22 @@ class CSVTableView(QTableView):
 
         if (model._current_page + 1) * model._page_size < len(model._data):
             model._current_page += 1
-            model.layoutChanged.emit()
+            self.on_page_change()
 
     def prevPage(self):
         model = self.model
 
         if model._current_page > 0:
             model._current_page -= 1
-            model.layoutChanged.emit()
+            self.on_page_change()
 
     def gotoPage(self, page):
-        model = self.model
+        self.model._current_page = page - 1
+        self.on_page_change()
 
-        model._current_page = page - 1
-        model.layoutChanged.emit()
+    def on_page_change(self):
+        self.model.layoutChanged.emit()
+        self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
 
 class PandasModel(QAbstractTableModel):
@@ -143,42 +146,25 @@ class PandasModel(QAbstractTableModel):
         return None
 
 
-class MainWindow(QMainWindow):
-    def __init__(self):
+class TableLayout(QVBoxLayout):
+    def __init__(self, parent):
         super().__init__()
-
-        self.setWindowTitle("Pandas DataFrame을 표로 나타내기")
-        self.resize(600, 400)
-
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
+        self.parent = parent
 
         upper_button_layout = QHBoxLayout()
-        self.layout.addLayout(upper_button_layout)
-
-        self.load_button = QPushButton("불러오기")
-        upper_button_layout.addWidget(self.load_button)
-
-        self.save_button = QPushButton("저장하기")
-        upper_button_layout.addWidget(self.save_button)
-
-        self.export_button = QPushButton("내보내기")
-        upper_button_layout.addWidget(self.export_button)
+        self.addLayout(upper_button_layout)
 
         self.column_button = QPushButton("라벨선택")
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
         self.table_view = CSVTableView()
-        self.layout.addWidget(self.table_view)
+        self.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
-        self.layout.addLayout(self.lower_button_layout)
+        self.addLayout(self.lower_button_layout)
 
-        self.prev_button = QPushButton("Previous")
+        self.prev_button = QPushButton("이전")
         self.prev_button.clicked.connect(self.prevPage)
         self.lower_button_layout.addWidget(self.prev_button, stretch=4)
 
@@ -192,9 +178,11 @@ class MainWindow(QMainWindow):
         self.maxpage_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.lower_button_layout.addWidget(self.maxpage_label, stretch=1)
 
-        self.next_button = QPushButton("Next")
+        self.next_button = QPushButton("다음")
         self.next_button.clicked.connect(self.nextPage)
         self.lower_button_layout.addWidget(self.next_button, stretch=4)
+
+        self.setEnabledUI(False)
 
     def setData(self, data):
         self.data = data
@@ -203,21 +191,21 @@ class MainWindow(QMainWindow):
         self.maxpage_label.setText("/ " + str(maxpage))
         self.page_label.setValidator(QIntValidator(1, maxpage))
         self.refresh_page()
+        self.setEnabledUI(True)
 
     def open_column_selection_dialog(self):
         current_selected_columns = [self.data.columns[i] for i in range(
             self.data.shape[1]) if not self.table_view.isColumnHidden(i)]
         dialog = ColumnSelectionDialog(
-            self, self.data.columns, current_selected_columns)
+            self.parent, self.data.columns, current_selected_columns)
         if dialog.exec_():
             selected_columns = dialog.get_selected_columns()
-            self.update_column_selection(selected_columns)
 
-    def update_column_selection(self, selected_columns):
-        for col in self.data.columns:
-            col_index = self.data.columns.get_loc(col)
-            self.table_view.setColumnHidden(
-                col_index, col not in selected_columns)
+            # update_column_selection
+            for col in self.data.columns:
+                col_index = self.data.columns.get_loc(col)
+                self.table_view.setColumnHidden(
+                    col_index, col not in selected_columns)
 
     def gotoPage(self):
         page = int(self.page_label.text())
@@ -237,13 +225,26 @@ class MainWindow(QMainWindow):
     def refresh_page(self):
         self.page_label.setText(str(self.table_view.get_page() + 1))
 
+    def setEnabledUI(self, is_disabled):
+        targets = [self.page_label, self.prev_button, self.next_button]
+        for t in targets:
+            t.setEnabled(is_disabled)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     apply_stylesheet(app, theme='light_teal_500.xml')
-    window = MainWindow()
-    window.show()
-    window.setData(
+    window = QMainWindow()
+    window.resize(600, 400)
+
+    widget = QWidget()
+    window.setCentralWidget(widget)
+
+    table_layout = TableLayout(window)
+    widget.setLayout(table_layout)
+    table_layout.setData(
         data=pd.read_csv("test_target.csv", encoding="utf8",
-                         sep="|", dtype=object)[0:25])
+                         sep="|", dtype=object))
+
+    window.show()
     sys.exit(app.exec_())
