@@ -130,8 +130,11 @@ class PandasModel(QAbstractTableModel):
         return self._data.shape[1] if not self._data.empty else 0
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self._data.columns[section]
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return self._data.columns[section]
+            elif orientation == Qt.Vertical:
+                return section + 1 + self._page_size * self._current_page
         return super().headerData(section, orientation, role)
 
     def data(self, index, role=Qt.DisplayRole):
