@@ -230,6 +230,9 @@ class TableLayout(QVBoxLayout):
         for t in targets:
             t.setEnabled(is_disabled)
 
+    def set_on_clicked(self, func):
+        self.table_view.clicked.connect(func)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
