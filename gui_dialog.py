@@ -3,6 +3,8 @@ import os
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
+from consts import SAVE_KEY_MAP
+
 
 class OptionDialog(QDialog):
     def __init__(self, parent):
@@ -29,7 +31,7 @@ class OptionDialog(QDialog):
 
         lineedit_key = QLineEdit(self)
         lineedit_key.setPlaceholderText("API 키를 입력해주세요.")
-        lineedit_key.setText(self.parent.settings.value("option_apikey", ""))
+        lineedit_key.setText(self.parent.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, ""))
         self.lineedit_key = lineedit_key
         hbox_key.addWidget(lineedit_key)
 
@@ -52,5 +54,5 @@ class OptionDialog(QDialog):
 
     def on_click_close_button(self):
         self.parent.settings.setValue(
-            "option_apikey", self.lineedit_key.text())
+            SAVE_KEY_MAP.OPTION_APIKEY, self.lineedit_key.text())
         self.accept()

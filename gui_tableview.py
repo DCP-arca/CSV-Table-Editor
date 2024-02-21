@@ -249,7 +249,7 @@ if __name__ == "__main__":
     apply_stylesheet(app, theme='light_teal_500.xml')
     table_layout = TableWidget()
     table_layout.setData(
-        data=pd.read_csv("result.csv", encoding="euc-kr",
+        data=pd.read_csv("target.csv", encoding="euc-kr",
                          sep="|", dtype=object))
     table_layout.show()
     sys.exit(app.exec_())

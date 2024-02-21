@@ -9,6 +9,9 @@ from qt_material import apply_stylesheet
 
 import pandas as pd
 
+from consts import SAVE_KEY_MAP
+
+from data_manager import DataManager
 from gui_tableview import TableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
@@ -23,15 +26,6 @@ APP_NAME = "mgj_csv_label_adder"
 WIDTH_RIGHT_LAYOUT = 350
 
 
-def convert_conds_to_item(cond):
-    cl = cond.split()
-    min_val = cl[0]
-    column_name = cl[2]
-    max_val = cl[4]
-
-    return min_val, column_name, max_val
-
-
 class MyWidget(QMainWindow):
 
     def __init__(self, app):
@@ -41,7 +35,7 @@ class MyWidget(QMainWindow):
         self.init_window()
         self.init_menubar()
         self.init_content()
-        self.main_splitter.setSizes([600, 300])
+        self.init_datamanager()
         self.show()
 
     def init_window(self):
@@ -104,7 +98,7 @@ class MyWidget(QMainWindow):
 
         info_table = InfoTable()
         self.info_table = info_table
-        self.set_info_text("PLEASE_LOAD_FILE")
+        self.info_table.set_info_text("아래 불러오기 버튼으로\n파일을 불러오세요!")
         info_layout.addWidget(info_table, stretch=2000)
 
         mapinfo_table = MapInfoTable()
@@ -124,56 +118,31 @@ class MyWidget(QMainWindow):
         self.export_button = export_button
         buttons_layout.addWidget(export_button)
 
-    def set_data(self, data):
-        self.data = data
-        self.search_widget.initialize(self.data.columns.to_list())
+        self.main_splitter.setSizes([600, 300])
 
-        self.cond_data = data.copy(deep=True)
-        self.table_widget.setData(self.cond_data, self.on_clicked_table)
-
-        self.now_conditions = []
-
-    def set_info_text(self, key):
-        value = ""
-
-        if key == "PLEASE_LOAD_FILE":
-            value = "아래 불러오기 버튼으로\n파일을 불러오세요!"
-        elif key == "PLEASE_CLICK_LEFT":
-            value = "왼쪽의 테이블을 눌러 자세히 보기!"
-
-        self.info_table.set_info_text(value)
+    def init_datamanager(self):
+        self.dm = DataManager(self)
 
     def open_file(self, src):
-        try:
-            csv = pd.read_csv(src, encoding="euc-kr", sep="|", dtype=object)
-        except Exception as e:
-            print(e)
-            QMessageBox.information(self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
+        if not self.dm.check_parquet_exists(src):
+            QMessageBox.information(self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
+                
+        is_success = self.dm.load(src)
+        if not is_success:
+            QMessageBox.information(
+                self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
             return
 
-        self.set_data(csv)
-        self.set_info_text("PLEASE_CLICK_LEFT")
-
+        self.search_widget.initialize(self.dm.data.columns.to_list())
+        self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
+        self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
         self.export_button.setEnabled(True)
 
     def show_save_dialog(self):
         file_path, _ = QFileDialog.getSaveFileName(
             self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
         if file_path:
-
-            result = self.data.copy(deep=True)
-            sel = pd.Series([True] * len(self.data))
-            for cond in self.now_conditions:
-                min_val, column_name, max_val = convert_conds_to_item(cond)
-                sel &= (result[column_name] >= min_val) & (
-                    result[column_name] <= max_val)
-
-            result["select"] = pd.Series(sel).astype(int)
-
-            result.to_csv(file_path,
-                          sep='|',
-                          index=False,
-                          encoding="euc-kr")
+            self.dm.export(file_path)
 
     def show_load_dialog(self):
         select_dialog = QFileDialog()
@@ -189,10 +158,10 @@ class MyWidget(QMainWindow):
         OptionDialog(self)
 
     def on_clicked_table(self, cur, prev):
-        self.info_table.update_table(self.cond_data.iloc[cur.row()])
+        self.info_table.update_table(self.dm.cond_data.iloc[cur.row()])
 
-        apikey = self.settings.value("option_apikey", "")
-        pnu = self.data.iloc[cur.row()]["PNU"]
+        apikey = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
+        pnu = self.dm.data.iloc[cur.row()]["PNU"]
 
         mapinfolist = ["ERROR", "ERROR", "ERROR", "ERROR"]
         if apikey and pnu:
@@ -203,15 +172,9 @@ class MyWidget(QMainWindow):
         self.mapinfo_table.update_table(mapinfolist)
 
     def on_condition_changed(self, conditions):
-        self.cond_data = self.data.copy(deep=True)
-        self.now_conditions = conditions
+        self.dm.change_condition(conditions)
 
-        for cond in conditions:
-            min_val, column_name, max_val = convert_conds_to_item(cond)
-            self.cond_data = self.cond_data[(self.cond_data[column_name] >= min_val) &
-                                            (self.cond_data[column_name] <= max_val)]
-
-        self.table_widget.setData(self.cond_data, self.on_clicked_table)
+        self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
