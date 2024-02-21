@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QListWidget, QListWidgetItem, QMessageBox, QStyledItemDelegate
 from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, QSize, pyqtSignal
-from PyQt5.QtGui import QColor, QPainter
+from PyQt5.QtGui import QColor, QPainter, QFont
 import pandas as pd
 
 
@@ -161,6 +161,10 @@ class PlaceholderTableView(QListView):
         painter.save()
         col = self.palette().placeholderText().color()
         painter.setPen(col)
+        font = QFont()
+        font.setBold(True)
+        # font.setPointSize(14)
+        painter.setFont(font)
         fm = self.fontMetrics()
         elided_text = fm.elidedText(
             "왼쪽의 버튼을 눌러 필터를 추가!", Qt.ElideRight, self.viewport().width()

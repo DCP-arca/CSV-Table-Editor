@@ -123,7 +123,5 @@ class CSVLabelAdder:
 if __name__ == "__main__":
     a = CSVLabelAdder()
     a.load("test_target.csv")
-    a.select("PNILP", 40000, 41000)
-    print(len(a.data))
-    print(type(a.sel))
-    # a.add_and_save("result.csv")
+    a.select("PNILP", 0, 9999999)
+    a.add_and_save("result.csv")

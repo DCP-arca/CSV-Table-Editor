@@ -168,15 +168,22 @@ class TableWidget(QWidget):
         self.prev_button.clicked.connect(self.prevPage)
         self.lower_button_layout.addWidget(self.prev_button, stretch=4)
 
+        self.lower_button_layout.addStretch(1)
+
+        page_layout = QHBoxLayout()
+        self.lower_button_layout.addLayout(page_layout)
+
         self.page_label = QLineEdit("1")
         self.page_label.setAlignment(Qt.AlignLeft)
         self.page_label.setMaximumWidth(60)
         self.page_label.returnPressed.connect(self.gotoPage)
-        self.lower_button_layout.addWidget(self.page_label)
+        page_layout.addWidget(self.page_label)
 
         self.maxpage_label = QLabel("/ n")
         self.maxpage_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self.lower_button_layout.addWidget(self.maxpage_label, stretch=1)
+        page_layout.addWidget(self.maxpage_label, stretch=1)
+
+        self.lower_button_layout.addStretch(1)
 
         self.next_button = QPushButton("다음")
         self.next_button.clicked.connect(self.nextPage)
@@ -230,7 +237,8 @@ class TableWidget(QWidget):
         self.page_label.setText(str(self.table_view.get_page() + 1))
 
     def setEnabledUI(self, is_disabled):
-        targets = [self.page_label, self.prev_button, self.next_button, self.column_button]
+        targets = [self.page_label, self.prev_button,
+                   self.next_button, self.column_button]
         for t in targets:
             t.setEnabled(is_disabled)
 
@@ -241,7 +249,7 @@ if __name__ == "__main__":
     apply_stylesheet(app, theme='light_teal_500.xml')
     table_layout = TableWidget()
     table_layout.setData(
-        data=pd.read_csv("test_target.csv", encoding="utf8",
+        data=pd.read_csv("result.csv", encoding="euc-kr",
                          sep="|", dtype=object))
     table_layout.show()
     sys.exit(app.exec_())
