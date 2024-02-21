@@ -15,8 +15,9 @@ from qt_material import apply_stylesheet
 import pandas as pd
 
 from csv_label_adder import CSVLabelAdder
-from gui_tableview import TableLayout
+from gui_tableview import TableWidget
 from gui_infotable import InfoTable
+from gui_search import SearchWidget
 
 TITLE_NAME = "CSV Label Adder"
 TOP_NAME = "mgj"
@@ -63,14 +64,14 @@ class MyWidget(QMainWindow):
         search_layout = QHBoxLayout()
         layout_left.addLayout(search_layout)
 
-        a = QPushButton("검색창")
-        a.setFixedHeight(80)
-        search_layout.addWidget(a)
+        self.search_widget = SearchWidget()
+        self.search_widget.setFixedHeight(80)
+        self.search_widget.on_condition_changed.connect(self.on_condition_changed)
+        search_layout.addWidget(self.search_widget)
 
-        table_layout = TableLayout(self)
-        self.table_layout = table_layout
-        table_layout.set_on_clicked(self.on_clicked_table)
-        layout_left.addLayout(table_layout)
+        table_widget = TableWidget()
+        self.table_widget = table_widget
+        layout_left.addWidget(table_widget)
 
         info_layout = QHBoxLayout()
         layout_right.addLayout(info_layout, stretch=200000)
@@ -91,10 +92,14 @@ class MyWidget(QMainWindow):
 
     def set_data(self, data):
         self.data = data
-        self.table_layout.setData(data)
+        self.table_widget.setData(data, self.on_clicked_table)
+        self.search_widget.set_column_list(self.data.columns.to_list())
 
-    def on_clicked_table(self, item):
-        self.info_table.update_table(self.data.iloc[item.row()])
+    def on_clicked_table(self, cur, prev):
+        self.info_table.update_table(self.data.iloc[cur.row()])
+
+    def on_condition_changed(self, condition):
+        print(condition)
 
     def closeEvent(self, e):
         self.settings.setValue("pos", self.pos())

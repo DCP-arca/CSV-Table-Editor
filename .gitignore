@@ -1,5 +1,6 @@
 target.csv
 target.parquet
+result.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

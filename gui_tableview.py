@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout
-from PyQt5.QtWidgets import QApplication, QTableView, QHeaderView, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
+from PyQt5.QtWidgets import QApplication, QTableWidget, QHeaderView, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
@@ -146,23 +146,23 @@ class PandasModel(QAbstractTableModel):
         return None
 
 
-class TableLayout(QVBoxLayout):
-    def __init__(self, parent):
+class TableWidget(QWidget):
+    def __init__(self):
         super().__init__()
-        self.parent = parent
+        self.layout = QVBoxLayout()
 
         upper_button_layout = QHBoxLayout()
-        self.addLayout(upper_button_layout)
+        self.layout.addLayout(upper_button_layout)
 
         self.column_button = QPushButton("라벨선택")
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
         self.table_view = CSVTableView()
-        self.addWidget(self.table_view)
+        self.layout.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
-        self.addLayout(self.lower_button_layout)
+        self.layout.addLayout(self.lower_button_layout)
 
         self.prev_button = QPushButton("이전")
         self.prev_button.clicked.connect(self.prevPage)
@@ -183,8 +183,9 @@ class TableLayout(QVBoxLayout):
         self.lower_button_layout.addWidget(self.next_button, stretch=4)
 
         self.setEnabledUI(False)
+        self.setLayout(self.layout)
 
-    def setData(self, data):
+    def setData(self, data, select_callback=None):
         self.data = data
         self.table_view.set_data(data)
         maxpage = self.table_view.get_maxpage()
@@ -193,11 +194,14 @@ class TableLayout(QVBoxLayout):
         self.refresh_page()
         self.setEnabledUI(True)
 
+        if select_callback:
+            self.table_view.selectionModel().currentChanged.connect(select_callback)
+
     def open_column_selection_dialog(self):
         current_selected_columns = [self.data.columns[i] for i in range(
             self.data.shape[1]) if not self.table_view.isColumnHidden(i)]
         dialog = ColumnSelectionDialog(
-            self.parent, self.data.columns, current_selected_columns)
+            self, self.data.columns, current_selected_columns)
         if dialog.exec_():
             selected_columns = dialog.get_selected_columns()
 
@@ -230,24 +234,14 @@ class TableLayout(QVBoxLayout):
         for t in targets:
             t.setEnabled(is_disabled)
 
-    def set_on_clicked(self, func):
-        self.table_view.clicked.connect(func)
-
 
 if __name__ == "__main__":
+
     app = QApplication(sys.argv)
     apply_stylesheet(app, theme='light_teal_500.xml')
-    window = QMainWindow()
-    window.resize(600, 400)
-
-    widget = QWidget()
-    window.setCentralWidget(widget)
-
-    table_layout = TableLayout(window)
-    widget.setLayout(table_layout)
+    table_layout = TableWidget()
     table_layout.setData(
         data=pd.read_csv("test_target.csv", encoding="utf8",
                          sep="|", dtype=object))
-
-    window.show()
+    table_layout.show()
     sys.exit(app.exec_())
