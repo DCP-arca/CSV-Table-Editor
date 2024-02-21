@@ -12,7 +12,7 @@ import pandas as pd
 from consts import SAVE_KEY_MAP
 
 from data_manager import DataManager
-from gui_tableview import TableWidget
+from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
@@ -85,11 +85,11 @@ class MyWidget(QMainWindow):
 
         self.search_widget = SearchWidget()
         self.search_widget.setFixedHeight(70)
-        self.search_widget.on_condition_changed.connect(
-            self.on_condition_changed)
+        self.search_widget.on_condition_changed.connect(self.on_condition_changed)
         search_layout.addWidget(self.search_widget)
 
-        table_widget = TableWidget()
+        table_widget = CSVTableWidget()
+        table_widget.on_columnselect_changed.connect(self.on_columnselect_changed)
         self.table_widget = table_widget
         layout_left.addWidget(table_widget)
 
@@ -171,10 +171,14 @@ class MyWidget(QMainWindow):
 
         self.mapinfo_table.update_table(mapinfolist)
 
+    # 필터를 세팅할때 불림 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):
         self.dm.change_condition(conditions)
 
         self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
+
+    def on_columnselect_changed(self, selected_columns):
+        self.search_widget.set_columns(selected_columns)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

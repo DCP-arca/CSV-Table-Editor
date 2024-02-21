@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox
 from PyQt5.QtWidgets import QApplication, QTableWidget, QHeaderView, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
-from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer
+from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
@@ -146,7 +146,9 @@ class PandasModel(QAbstractTableModel):
         return None
 
 
-class TableWidget(QWidget):
+class CSVTableWidget(QWidget):
+    on_columnselect_changed = pyqtSignal(list)
+
     def __init__(self):
         super().__init__()
         self.layout = QVBoxLayout()
@@ -212,11 +214,13 @@ class TableWidget(QWidget):
         if dialog.exec_():
             selected_columns = dialog.get_selected_columns()
 
-            # update_column_selection
+            if len(selected_columns) == 0:
+                QMessageBox.information(self, '경고', "적어도 하나는 선택해주세요.")
+                return
             for col in self.data.columns:
                 col_index = self.data.columns.get_loc(col)
-                self.table_view.setColumnHidden(
-                    col_index, col not in selected_columns)
+                self.table_view.setColumnHidden(col_index, col not in selected_columns)
+            self.on_columnselect_changed.emit(selected_columns)
 
     def gotoPage(self):
         page = int(self.page_label.text())
@@ -244,10 +248,9 @@ class TableWidget(QWidget):
 
 
 if __name__ == "__main__":
-
     app = QApplication(sys.argv)
     apply_stylesheet(app, theme='light_teal_500.xml')
-    table_layout = TableWidget()
+    table_layout = CSVTableWidget()
     table_layout.setData(
         data=pd.read_csv("target.csv", encoding="euc-kr",
                          sep="|", dtype=object))

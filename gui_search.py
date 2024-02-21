@@ -6,7 +6,7 @@ import pandas as pd
 
 
 class ConditionDialog(QDialog):
-    def __init__(self, parent, columns, data=None):
+    def __init__(self, parent, column_list, data=None):
         super().__init__()
         self._parent = parent
         self.setWindowTitle("Add/Edit Condition")
@@ -22,9 +22,12 @@ class ConditionDialog(QDialog):
             min_val = condition.split()[0]
             max_val = condition.split()[4]
 
+            if not (column in column_list):
+                column_list.append(column)
+
         self.column_label = QLabel("Column:")
         self.column_combobox = QComboBox()
-        self.column_combobox.addItems(columns)
+        self.column_combobox.addItems(column_list)
         self.column_combobox.setCurrentText(column)
         self.min_label = QLabel("Min:")
         self.min_input = QLineEdit(min_val or "")
@@ -218,9 +221,12 @@ class SearchWidget(QWidget):
     def initialize(self, columns):
         self.model.clearAll()
 
-        self.columns = columns
+        self.set_columns(columns)
 
         self.add_condition_button.setEnabled(True)
+
+    def set_columns(self, columns):
+        self.columns = columns
 
     def add_condition(self, condition, editing_index=None):
         if not editing_index:
