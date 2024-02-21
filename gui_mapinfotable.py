@@ -35,6 +35,8 @@ class MapInfoTable(QTableWidget):
 
         self.itemDoubleClicked.connect(self.try_open_link)
 
+        self.update_table(["", "", "", ""])
+
     def update_table(self, datalist):
         self.clear()
 
@@ -74,7 +76,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     table_widget = MapInfoTable()
-    table_widget.update_table(["e", "q", "s", "d"])
 
     table_widget.show()
     sys.exit(app.exec_())

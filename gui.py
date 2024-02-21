@@ -29,6 +29,15 @@ APP_NAME = "mgj_csv_label_adder"
 WIDTH_RIGHT_LAYOUT = 350
 
 
+def convert_conds_to_item(cond):
+    cl = cond.split()
+    min_val = cl[0]
+    column_name = cl[2]
+    max_val = cl[4]
+
+    return min_val, column_name, max_val
+
+
 class MyWidget(QMainWindow):
 
     def __init__(self, app):
@@ -51,7 +60,7 @@ class MyWidget(QMainWindow):
     def init_menubar(self):
         openAction = QAction('파일 열기(Open file)', self)
         openAction.setShortcut('Ctrl+O')
-        openAction.triggered.connect(self.show_file_dialog)
+        openAction.triggered.connect(self.show_load_dialog)
 
         optionAction = QAction('옵션(Option)', self)
         optionAction.setShortcut('Ctrl+U')
@@ -113,11 +122,13 @@ class MyWidget(QMainWindow):
         layout_right.addLayout(buttons_layout)
 
         load_button = QPushButton("불러오기")
-        load_button.pressed.connect(self.show_file_dialog)
+        load_button.pressed.connect(self.show_load_dialog)
         buttons_layout.addWidget(load_button)
         save_button = QPushButton("저장하기")
+        save_button.setEnabled(False)
         buttons_layout.addWidget(save_button)
         export_button = QPushButton("내보내기")
+        export_button.pressed.connect(self.show_save_dialog)
         buttons_layout.addWidget(export_button)
 
     def set_data(self, data):
@@ -126,6 +137,8 @@ class MyWidget(QMainWindow):
 
         self.cond_data = data.copy(deep=True)
         self.table_widget.setData(self.cond_data, self.on_clicked_table)
+
+        self.now_conditions = []
 
     def set_info_text(self, key):
         value = ""
@@ -139,10 +152,28 @@ class MyWidget(QMainWindow):
 
     def open_file(self, src):
         self.set_data(pd.read_csv(
-            src, encoding="utf8", sep="|", dtype=object))
+            src, encoding="euc-kr", sep="|", dtype=object))
         self.set_info_text("PLEASE_CLICK_LEFT")
 
-    def show_file_dialog(self):
+    def show_save_dialog(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
+        if file_path:
+
+            result = self.data.copy(deep=True)
+            sel = pd.Series([True] * len(self.data))
+            for cond in self.now_conditions:
+                min_val, column_name, max_val = convert_conds_to_item(cond)
+                sel &= (result[column_name] >= min_val) & (result[column_name] <= max_val)
+
+            result["select"] = pd.Series(sel).astype(int)
+
+            result.to_csv(file_path,
+                          sep='|',
+                          index=False,
+                          encoding="euc-kr")
+
+    def show_load_dialog(self):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
         fname = select_dialog.getOpenFileName(
@@ -171,12 +202,10 @@ class MyWidget(QMainWindow):
 
     def on_condition_changed(self, conditions):
         self.cond_data = self.data.copy(deep=True)
+        self.now_conditions = conditions
 
         for cond in conditions:
-            cl = cond.split()
-            min_val = cl[0]
-            column_name = cl[2]
-            max_val = cl[4]
+            min_val, column_name, max_val = convert_conds_to_item(cond)
             self.cond_data = self.cond_data[(self.cond_data[column_name] >= min_val) &
                                             (self.cond_data[column_name] <= max_val)]
 
@@ -200,7 +229,7 @@ if __name__ == '__main__':
     apply_stylesheet(app, theme='light_teal_500.xml')
     widget = MyWidget(app)
 
-    widget.open_file("test_target.csv")
+    # widget.open_file("test_target.csv")
 
     time.sleep(0.1)
 

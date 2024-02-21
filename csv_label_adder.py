@@ -125,5 +125,5 @@ if __name__ == "__main__":
     a.load("test_target.csv")
     a.select("PNILP", 40000, 41000)
     print(len(a.data))
-    print(a.return_select())
-    a.add_and_save("result.csv")
+    print(type(a.sel))
+    # a.add_and_save("result.csv")
