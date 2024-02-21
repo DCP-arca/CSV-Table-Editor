@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QListWidget, QListWidgetItem, QMessageBox, QStyledItemDelegate
 from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, QSize, pyqtSignal
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPainter
 import pandas as pd
 
 
@@ -54,36 +54,40 @@ class ConditionDialog(QDialog):
         min_val = self.min_input.text().strip()
         max_val = self.max_input.text().strip()
 
+        if self._check_condition_value(column, min_val, max_val):
+            item_text = f"{min_val} < {column} < {max_val}"
+            self._parent.add_condition(item_text, self.data)
+            self.close()
+
+    def remove_condition(self):
+        self._parent.remove_condition(self.data)
+        self.close()
+
+    def _check_condition_value(self, column, min_val, max_val):
         if not column:
             QMessageBox.warning(self, "Warning", "Please enter a column name.")
-            return
+            return False
         if not min_val or not max_val:
             QMessageBox.warning(
                 self, "Warning", "Please enter both minimum and maximum values.")
-            return
+            return False
         try:
             min_val = float(min_val)
             max_val = float(max_val)
         except ValueError:
             QMessageBox.warning(
                 self, "Warning", "Please enter valid numeric values for min and max.")
-            return
+            return False
         if len(column) < 1 or len(column) > 120:
             QMessageBox.warning(
                 self, "Warning", "Column name must be between 1 and 120 characters long.")
-            return
-        if min_val >= max_val:
+            return False
+        if min_val > max_val:
             QMessageBox.warning(
                 self, "Warning", "Minimum value must be less than maximum value.")
-            return
+            return False
 
-        item_text = f"{min_val} < {column} < {max_val}"
-        self._parent.add_condition(item_text, self.data)
-        self.close()
-
-    def remove_condition(self):
-        self._parent.remove_condition(self.data)
-        self.close()
+        return True
 
 
 class CircularListModel(QAbstractListModel):
@@ -125,6 +129,11 @@ class CircularListModel(QAbstractListModel):
         self.endRemoveRows()
         return True
 
+    def clearAll(self):
+        self.beginResetModel()
+        self._data.clear()
+        self.endResetModel()
+
 
 class CustomDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
@@ -143,6 +152,24 @@ class CustomDelegate(QStyledItemDelegate):
         painter.restore()
 
 
+class PlaceholderTableView(QListView):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.model() is not None and self.model().rowCount() > 0:
+            return
+        painter = QPainter(self.viewport())
+        painter.save()
+        col = self.palette().placeholderText().color()
+        painter.setPen(col)
+        fm = self.fontMetrics()
+        elided_text = fm.elidedText(
+            "왼쪽의 버튼을 눌러 필터를 추가!", Qt.ElideRight, self.viewport().width()
+        )
+        painter.drawText(self.viewport().rect(),
+                         Qt.AlignCenter, elided_text)
+        painter.restore()
+
+
 class SearchWidget(QWidget):
     on_condition_changed = pyqtSignal(list)
 
@@ -156,7 +183,7 @@ class SearchWidget(QWidget):
         self.layout.addWidget(self.add_condition_button)
 
         self.model = CircularListModel()  # 초기 아이템 설정
-        list_view = QListView()
+        list_view = PlaceholderTableView()
         list_view.setModel(self.model)
         list_view.setItemDelegate(CustomDelegate())
         list_view.setIconSize(QSize(100, 100))  # 아이콘 크기 조절
@@ -184,7 +211,9 @@ class SearchWidget(QWidget):
         dialog = ConditionDialog(self, self.columns, item)
         dialog.exec_()
 
-    def set_column_list(self, columns):
+    def initialize(self, columns):
+        self.model.clearAll()
+
         self.columns = columns
 
         self.add_condition_button.setEnabled(True)
@@ -209,12 +238,12 @@ class SearchWidget(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     search_widget = SearchWidget()
-    search_widget.set_column_list(
+    search_widget.initialize(
         ['Columcsacsaasdasdasdsadscn3', 'Cn2', 'Columcsacsacn3'])
-    search_widget.add_condition("1 < col < 2")
-    search_widget.add_condition("1 < col < 2")
-    search_widget.add_condition("1 < col < 2")
-    search_widget.add_condition("1 < col < 2")
+    # search_widget.add_condition("1 < col < 2")
+    # search_widget.add_condition("1 < col < 2")
+    # search_widget.add_condition("1 < col < 2")
+    # search_widget.add_condition("1 < col < 2")
     search_widget.resize(800, 50)
     search_widget.show()
     sys.exit(app.exec_())

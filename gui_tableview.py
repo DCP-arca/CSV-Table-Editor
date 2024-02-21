@@ -230,7 +230,7 @@ class TableWidget(QWidget):
         self.page_label.setText(str(self.table_view.get_page() + 1))
 
     def setEnabledUI(self, is_disabled):
-        targets = [self.page_label, self.prev_button, self.next_button]
+        targets = [self.page_label, self.prev_button, self.next_button, self.column_button]
         for t in targets:
             t.setEnabled(is_disabled)
 
