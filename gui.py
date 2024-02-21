@@ -16,7 +16,7 @@ from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog
+from gui_dialog import OptionDialog, LoadOptionDialog
 from get_mapinfo_from_pnu import get_mapinfo_from_pnu
 
 TITLE_NAME = "CSV Label Adder"
@@ -48,7 +48,7 @@ class MyWidget(QMainWindow):
     def init_menubar(self):
         openAction = QAction('파일 열기(Open file)', self)
         openAction.setShortcut('Ctrl+O')
-        openAction.triggered.connect(self.show_load_dialog)
+        openAction.triggered.connect(self.start_load)
 
         optionAction = QAction('옵션(Option)', self)
         optionAction.setShortcut('Ctrl+U')
@@ -85,11 +85,13 @@ class MyWidget(QMainWindow):
 
         self.search_widget = SearchWidget()
         self.search_widget.setFixedHeight(70)
-        self.search_widget.on_condition_changed.connect(self.on_condition_changed)
+        self.search_widget.on_condition_changed.connect(
+            self.on_condition_changed)
         search_layout.addWidget(self.search_widget)
 
         table_widget = CSVTableWidget()
-        table_widget.on_columnselect_changed.connect(self.on_columnselect_changed)
+        table_widget.on_columnselect_changed.connect(
+            self.on_columnselect_changed)
         self.table_widget = table_widget
         layout_left.addWidget(table_widget)
 
@@ -110,7 +112,7 @@ class MyWidget(QMainWindow):
         layout_right.addLayout(buttons_layout)
 
         load_button = QPushButton("불러오기")
-        load_button.pressed.connect(self.show_load_dialog)
+        load_button.pressed.connect(self.start_load)
         buttons_layout.addWidget(load_button)
         export_button = QPushButton("내보내기")
         export_button.setEnabled(False)
@@ -123,11 +125,28 @@ class MyWidget(QMainWindow):
     def init_datamanager(self):
         self.dm = DataManager(self)
 
-    def open_file(self, src):
+    def start_load(self, src=""):
+        load_mode = 0
+
+        if self.dm.data is not None:
+            dialog = LoadOptionDialog()
+            if dialog.exec_() == QDialog.Accepted:
+                load_mode = dialog.selected_radiovalue
+            else:
+                return
+
+        if src:
+            self.load(src, load_mode)
+        else:
+            self.show_load_dialog(load_mode)
+
+    def load(self, src, load_mode):
         if not self.dm.check_parquet_exists(src):
-            QMessageBox.information(self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
-                
-        is_success = self.dm.load(src)
+            QMessageBox.information(
+                self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
+
+        is_success = self.dm.load_data(src, load_mode)
+
         if not is_success:
             QMessageBox.information(
                 self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
@@ -144,7 +163,7 @@ class MyWidget(QMainWindow):
         if file_path:
             self.dm.export(file_path)
 
-    def show_load_dialog(self):
+    def show_load_dialog(self, load_mode):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
         fname = select_dialog.getOpenFileName(
@@ -152,7 +171,7 @@ class MyWidget(QMainWindow):
 
         if fname[0]:
             fname = fname[0]
-            self.open_file(fname)
+            self.load(fname, load_mode)
 
     def show_option_dialog(self):
         OptionDialog(self)
@@ -171,12 +190,13 @@ class MyWidget(QMainWindow):
 
         self.mapinfo_table.update_table(mapinfolist)
 
-    # 필터를 세팅할때 불림 : 필터에 맞춰서 table_widget 내용을 바꿈
+    # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):
         self.dm.change_condition(conditions)
 
         self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
 
+    # 라벨을 세팅할때 호출됨 : 세팅된 것에 맞춰 검색필터를 제한함.
     def on_columnselect_changed(self, selected_columns):
         self.search_widget.set_columns(selected_columns)
 
@@ -202,7 +222,7 @@ class MyWidget(QMainWindow):
             QMessageBox.information(self, '경고', "txt나 csv파일만 가능합니다.")
             return
 
-        self.open_file(fname)
+        self.start_load(fname)
 
     def closeEvent(self, e):
         self.settings.setValue("pos", self.pos())
@@ -222,7 +242,7 @@ if __name__ == '__main__':
     apply_stylesheet(app, theme='light_teal_500.xml')
     widget = MyWidget(app)
 
-    # widget.open_file("test_target.csv")
+    # widget.load("test_target.csv")
 
     time.sleep(0.1)
 

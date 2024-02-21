@@ -1,11 +1,12 @@
 import pandas as pd
 import os
-from consts import SAVE_KEY_MAP
+from consts import SAVE_KEY_MAP, CODE_LOADMODE
 
 
 def remove_extension(file_path):
     base = os.path.splitext(file_path)[0]
     return base
+
 
 def convert_conds_to_item(cond):
     cl = cond.split()
@@ -32,7 +33,8 @@ class DataManager:
             return False
 
         # 이 파르켓을 만들때 생성했던 원본 사이즈 불러오기
-        saved_file_size = self.parent.settings.value(SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, -1)
+        saved_file_size = self.parent.settings.value(
+            SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, -1)
         if saved_file_size == -1:
             return False
 
@@ -43,7 +45,7 @@ class DataManager:
 
         return True
 
-    def load(self, src):
+    def load_data(self, src, load_mode):
         parquet_name = remove_extension(src) + ".parquet"
 
         if not self.check_parquet_exists(src):
@@ -54,9 +56,18 @@ class DataManager:
                 return False
             df.to_parquet(parquet_name)
             file_size = os.path.getsize(src)
-            self.parent.settings.setValue(SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, file_size)
+            self.parent.settings.setValue(
+                SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, file_size)
 
-        self.data = pd.read_parquet(parquet_name)
+        new_data = pd.read_parquet(parquet_name)
+        if load_mode == CODE_LOADMODE.NEW:
+            self.data = new_data
+        elif load_mode == CODE_LOADMODE.APPEND:
+            self.data = pd.concat([self.data, new_data])
+        elif load_mode == CODE_LOADMODE.ADDLOW:
+            #TODO!!!
+            pass
+
         self.cond_data = self.data.copy(deep=True)
         self.now_conditions = []
 

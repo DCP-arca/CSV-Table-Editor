@@ -1,9 +1,10 @@
 import os
-
+import sys
+from PyQt5.QtWidgets import QApplication, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
-from consts import SAVE_KEY_MAP
+from consts import SAVE_KEY_MAP, CODE_LOADMODE
 
 
 class OptionDialog(QDialog):
@@ -31,7 +32,8 @@ class OptionDialog(QDialog):
 
         lineedit_key = QLineEdit(self)
         lineedit_key.setPlaceholderText("API 키를 입력해주세요.")
-        lineedit_key.setText(self.parent.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, ""))
+        lineedit_key.setText(self.parent.settings.value(
+            SAVE_KEY_MAP.OPTION_APIKEY, ""))
         self.lineedit_key = lineedit_key
         hbox_key.addWidget(lineedit_key)
 
@@ -56,3 +58,52 @@ class OptionDialog(QDialog):
         self.parent.settings.setValue(
             SAVE_KEY_MAP.OPTION_APIKEY, self.lineedit_key.text())
         self.accept()
+
+
+class LoadOptionDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("불러오기")
+        self.layout = QVBoxLayout()
+
+        self.groupBox = QGroupBox("불러오기 모드 선택")
+        self.radio1 = QRadioButton("새로 불러오기")
+        self.radio1.setChecked(True)
+        self.radio2 = QRadioButton("추가로 불러오기")
+        self.radio3 = QRadioButton("PNU로 열 덧붙이기")
+
+        self.groupBoxLayout = QVBoxLayout()
+        self.groupBoxLayout.addWidget(self.radio1)
+        self.groupBoxLayout.addWidget(self.radio2)
+        self.groupBoxLayout.addWidget(self.radio3)
+        self.groupBox.setLayout(self.groupBoxLayout)
+
+        self.layout.addWidget(self.groupBox)
+
+        self.buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout.addWidget(self.buttonBox)
+
+        self.setLayout(self.layout)
+
+    def accept(self):
+        if self.radio1.isChecked():
+            self.selected_radiovalue = CODE_LOADMODE.NEW
+        elif self.radio2.isChecked():
+            self.selected_radiovalue = CODE_LOADMODE.APPEND
+        elif self.radio3.isChecked():
+            self.selected_radiovalue = CODE_LOADMODE.ADDROW
+
+        super().accept()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    dialog = LoadOptionDialog()
+    if dialog.exec_() == QDialog.Accepted:
+        print("선택된 라디오 버튼:", dialog.selected_radiovalue)
+    sys.exit(app.exec_())
