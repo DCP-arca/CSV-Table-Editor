@@ -5,6 +5,7 @@ from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
+from consts import ENUM_TABLEVIEW_SORTMODE
 from qt_material import apply_stylesheet
 
 # 페이지만들고 넘기기 만들기
@@ -81,6 +82,7 @@ class CSVTableView(QTableView):
         self.page_size = page_size
         self.setAcceptDrops(False)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.horizontalHeader().setSectionsClickable(False)
         self.horizontalHeader().sectionDoubleClicked.connect(
             self.on_horizontalheader_doubleclicked)
 
@@ -89,11 +91,15 @@ class CSVTableView(QTableView):
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def set_data(self, data):
-        self.model = PandasModel(data, self.page_size)
-        self.setModel(self.model)
+        self.set_data_without_init(data)
+        self.refresh_tableview_width()
+        self.set_sort_indicator(0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
         for i in range(self.model.columnCount()):
             self.setColumnHidden(i, False)
-        self.refresh_tableview_width()
+
+    def set_data_without_init(self, data):
+        self.model = PandasModel(data, self.page_size)
+        self.setModel(self.model)
 
     def get_page(self):
         return self.model._current_page
@@ -120,14 +126,23 @@ class CSVTableView(QTableView):
         self.model._current_page = page - 1
         self.on_page_change()
 
+    def set_sort_indicator(self, index, sort_mode):
+        if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
+            self.horizontalHeader().setSortIndicator(index, Qt.SortOrder.AscendingOrder)
+            self.horizontalHeader().setSortIndicatorShown(True)
+        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.DESCEND:
+            self.horizontalHeader().setSortIndicator(index, Qt.SortOrder.DescendingOrder)
+            self.horizontalHeader().setSortIndicatorShown(True)
+        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
+            self.horizontalHeader().setSortIndicatorShown(False)
+
     def on_page_change(self):
         self.model.layoutChanged.emit()
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
-    def on_horizontalheader_doubleclicked(self, item):
-        print(item)
-        # TODO from here TODOTODOTODOTOD
-        # 이거 페이지가 있기때문에 애초에 datamanager쪽에서 오더링 해야만함.
+    def on_horizontalheader_doubleclicked(self, index):
+        self.parent().on_horizontalheader_doubleclicked(
+            index, self.model.headerData(index, Qt.Horizontal))
 
 
 class PandasModel(QAbstractTableModel):
@@ -159,6 +174,7 @@ class PandasModel(QAbstractTableModel):
 
 class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
+    on_columnsort_changed = pyqtSignal(str, int)
 
     def __init__(self, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
         super().__init__()
@@ -209,16 +225,25 @@ class CSVTableWidget(QWidget):
 
     def setData(self, data, select_callback=None):
         self.data = data
+        self.now_sort = []
         self.table_view.set_data(data)
+        self.init_page()
+        self.setEnabledUI(True)
+
+        if select_callback:
+            self.table_view.selectionModel().currentChanged.connect(select_callback)
+
+    def sortData(self, data):
+        self.data = data
+        self.table_view.set_data_without_init(data)
+        self.init_page()
+
+    def init_page(self):
         maxpage = self.table_view.get_maxpage()
         self.maxpage_label.setText("/ " + str(maxpage))
         self.page_label.setValidator(QIntValidator(1, maxpage))
         self.page_label.setText("1")
         self.refresh_page()
-        self.setEnabledUI(True)
-
-        if select_callback:
-            self.table_view.selectionModel().currentChanged.connect(select_callback)
 
     def open_column_selection_dialog(self):
         current_selected_columns = [self.data.columns[i] for i in range(
@@ -263,6 +288,26 @@ class CSVTableWidget(QWidget):
                    self.next_button, self.column_button]
         for t in targets:
             t.setEnabled(is_disabled)
+
+    # sorting
+    def on_horizontalheader_doubleclicked(self, index, column_name):
+        sort_mode = -1
+
+        # 처음 정렬
+        if not self.now_sort:
+            sort_mode = ENUM_TABLEVIEW_SORTMODE.ASCEND
+        else:
+            if self.now_sort[0] == index:   # 같은 걸 한번 더 누른경우
+                sort_mode = self.now_sort[1] + 1
+                if sort_mode > 2:
+                    sort_mode = 0
+            else:                           # 다른 걸 누른 경우
+                sort_mode = ENUM_TABLEVIEW_SORTMODE.ASCEND
+
+        if sort_mode != -1:
+            self.now_sort = [index, sort_mode]
+            self.table_view.set_sort_indicator(index, sort_mode)
+            self.on_columnsort_changed.emit(column_name, sort_mode)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog
 from get_mapinfo_from_pnu import get_mapinfo_from_pnu
 
 TITLE_NAME = "CSV Label Adder"
@@ -92,6 +92,8 @@ class MyWidget(QMainWindow):
         table_widget = CSVTableWidget()
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
+        table_widget.on_columnsort_changed.connect(
+            self.on_columnsort_changed)
         self.table_widget = table_widget
         layout_left.addWidget(table_widget)
 
@@ -216,6 +218,13 @@ class MyWidget(QMainWindow):
     def on_columnselect_changed(self, selected_columns):
         self.showing_columns = selected_columns
         self.search_widget.set_columns(selected_columns)
+
+    def on_columnsort_changed(self, column_name, sort_mode):
+        FileIODialog(
+            "정렬 중입니다.(파일이 크면 오래 걸릴 수 있습니다.)",
+            lambda: self.dm.sort(column_name, sort_mode)).exec_()
+
+        self.table_widget.sortData(self.dm.data)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

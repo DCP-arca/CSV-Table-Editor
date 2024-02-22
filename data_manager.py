@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 from PyQt5.QtWidgets import QDialog
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT, ENUM_TABLEVIEW_SORTMODE
 from gui_dialog import FileIODialog
 
 
@@ -119,6 +119,17 @@ class DataManager:
             cond_float = self.cond_data[column_name].astype(float)
             self.cond_data = self.cond_data[(
                 cond_float >= min_val) & (cond_float <= max_val)]
+
+    def sort(self, column_name, sort_mode):        
+        if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
+            self.data = self.data.sort_values(by=column_name)
+            self.cond_data = self.cond_data.sort_values(by=column_name)
+        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.DESCEND:
+            self.data = self.data.sort_values(by=column_name, ascending=False)
+            self.cond_data = self.cond_data.sort_values(by=column_name, ascending=False)
+        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
+            self.data = self.data.sort_index()
+            self.cond_data = self.cond_data.sort_index()
 
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     def export(self, dst, sep_mode, list_target_column, select_mode):
