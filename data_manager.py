@@ -8,6 +8,13 @@ def remove_extension(file_path):
     return base
 
 
+def get_only_filename(file_path):
+    file_name_with_extension = os.path.basename(file_path)
+    file_name_without_extension = os.path.splitext(file_name_with_extension)[0]
+
+    return file_name_without_extension
+
+
 def convert_conds_to_item(cond):
     cl = cond.split()
     min_val = float(cl[0])
@@ -33,8 +40,9 @@ class DataManager:
             return False
 
         # 이 파르켓을 만들때 생성했던 원본 사이즈 불러오기
+        filename = get_only_filename(parquet_src)
         saved_file_size = self.parent.settings.value(
-            SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, -1)
+            SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + filename, -1)
         if saved_file_size == -1:
             return False
 
@@ -57,17 +65,17 @@ class DataManager:
                 return False
             df.to_parquet(parquet_name)
             file_size = os.path.getsize(src)
+            filename = get_only_filename(src)
             self.parent.settings.setValue(
-                SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE, file_size)
+                SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + filename, file_size)
 
         new_data = pd.read_parquet(parquet_name)
         if load_mode == CODE_LOAD_MODE.NEW:
             self.data = new_data
         elif load_mode == CODE_LOAD_MODE.APPEND:
             self.data = pd.concat([self.data, new_data])
-        elif load_mode == CODE_LOAD_MODE.ADDLOW:
-            # TODO!!!
-            pass
+        elif load_mode == CODE_LOAD_MODE.ADDROW:
+            self.data = pd.merge(self.data, new_data, on='PNU', how='outer')
 
         self.cond_data = self.data.copy(deep=True)
         self.now_conditions = []
@@ -93,8 +101,8 @@ class DataManager:
         sel = pd.Series([True] * len(self.data))
         for cond in self.now_conditions:
             min_val, column_name, max_val = convert_conds_to_item(cond)
-            sel &= (result[column_name] >= min_val) & (
-                result[column_name] <= max_val)
+            result_float = result[column_name].astype(float)
+            sel &= (result_float >= min_val) & (result_float <= max_val)
 
         # option 2. 열(라벨) 거르기
         if list_target_column:

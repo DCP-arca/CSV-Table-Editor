@@ -155,9 +155,9 @@ class MyWidget(QMainWindow):
                 self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
             return
 
-        self.showing_columns = []
-        self.search_widget.initialize(self.dm.data.columns.to_list())
-        self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
+        self.showing_columns = self.dm.data.columns.to_list()
+        self.search_widget.initialize(self.showing_columns)
+        self.table_widget.setData(self.dm.data, self.on_clicked_table)
         self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
         self.export_button.setEnabled(True)
 

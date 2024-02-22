@@ -1,9 +1,5 @@
-target.csv
-target.parquet
-result.csv
-massive_original.csv
-massive_original.parquet
-wrong_target.csv
+*.parquet
+*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

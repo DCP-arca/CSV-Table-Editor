@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox
-from PyQt5.QtWidgets import QApplication, QTableWidget, QHeaderView, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
+from PyQt5.QtWidgets import QApplication, QAbstractItemView, QTableWidget, QHeaderView, QSizePolicy, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
@@ -79,6 +79,8 @@ class CSVTableView(QTableView):
     def __init__(self, parent, page_size):
         super(CSVTableView, self).__init__(parent)
         self.page_size = page_size
+        self.setAcceptDrops(False)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
 
     def refresh_tableview_width(self):
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
@@ -87,6 +89,8 @@ class CSVTableView(QTableView):
     def set_data(self, data):
         self.model = PandasModel(data, self.page_size)
         self.setModel(self.model)
+        for i in range(self.model.columnCount()):
+            self.setColumnHidden(i, False)
         self.refresh_tableview_width()
 
     def get_page(self):
@@ -202,6 +206,7 @@ class CSVTableWidget(QWidget):
         maxpage = self.table_view.get_maxpage()
         self.maxpage_label.setText("/ " + str(maxpage))
         self.page_label.setValidator(QIntValidator(1, maxpage))
+        self.page_label.setText("1")
         self.refresh_page()
         self.setEnabledUI(True)
 
