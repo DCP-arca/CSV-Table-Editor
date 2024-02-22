@@ -9,7 +9,7 @@ from qt_material import apply_stylesheet
 
 import pandas as pd
 
-from consts import SAVE_KEY_MAP, CODE_SAVE_COLUMN
+from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN
 
 from data_manager import DataManager
 from gui_tableview import CSVTableWidget
@@ -166,7 +166,7 @@ class MyWidget(QMainWindow):
         if dialog.exec_():
             list_value = dialog.list_selected_value
             sep_mode = list_value[0]
-            list_target_column = self.showing_columns if list_value[1] == CODE_SAVE_COLUMN.SELECTED else None
+            list_target_column = self.showing_columns if list_value[1] == ENUM_SAVE_COLUMN.SELECTED else None
             select_mode = list_value[2]
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")

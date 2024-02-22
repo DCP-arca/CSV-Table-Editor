@@ -3,8 +3,9 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+import pandas as pd
 
-from consts import SAVE_KEY_MAP, CODE_LOAD_MODE, CODE_SEPERATOR
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_FILEIO_DIALOG_MODE
 
 
 LIST_GROUPBOX_TEXT = [
@@ -125,16 +126,16 @@ class LoadOptionDialog(QDialog):
 
     def accept(self):
         if self.radio1_loadmode.isChecked():
-            self.selected_radiovalue = CODE_LOAD_MODE.NEW
+            self.selected_radiovalue = ENUM_LOAD_MODE.NEW
         elif self.radio2_loadmode.isChecked():
-            self.selected_radiovalue = CODE_LOAD_MODE.APPEND
+            self.selected_radiovalue = ENUM_LOAD_MODE.APPEND
         elif self.radio3_loadmode.isChecked():
-            self.selected_radiovalue = CODE_LOAD_MODE.ADDROW
+            self.selected_radiovalue = ENUM_LOAD_MODE.ADDROW
 
         if self.radio1_seperator.isChecked():
-            self.selected_seperator = CODE_SEPERATOR.VERTICAL_BAR
+            self.selected_seperator = ENUM_SEPERATOR.VERTICAL_BAR
         elif self.radio2_seperator.isChecked():
-            self.selected_seperator = CODE_SEPERATOR.DOT
+            self.selected_seperator = ENUM_SEPERATOR.DOT
 
         super().accept()
 
@@ -190,9 +191,67 @@ class SaveOptionDialog(QDialog):
         super().accept()
 
 
-if __name__ == "__main__":
+class LoadingWorker(QThread):
+    finished = pyqtSignal(pd.DataFrame)
+
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def run(self):
+        df = pd.DataFrame()
+        try:
+            df = self.func()
+            if df is None:
+                df = pd.DataFrame()
+        except Exception as e:
+            print(e)
+            self.finished.emit(pd.DataFrame())
+
+        self.finished.emit(df)
+
+
+# Warning!
+# finished always return dataframe
+# if failed, dataframe.empty will be return.
+# you should check "if df.empty:" instead "if df:"
+class FileIODialog(QDialog):
+    def __init__(self, text, func):
+        super().__init__()
+        self.text = text
+        self.func = func
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("로딩 중")
+
+        layout = QVBoxLayout()
+        self.progress_label = QLabel(self.text)
+        layout.addWidget(self.progress_label)
+
+        self.setLayout(layout)
+
+        self.resize(200, 100)
+        self.setWindowFlag(Qt.WindowCloseButtonHint, False)
+
+    def showEvent(self, event):
+        self.worker_thread = LoadingWorker(self.func)
+        self.worker_thread.finished.connect(self.on_finished)
+        self.worker_thread.start()
+        super().showEvent(event)
+
+    def on_finished(self, df):
+        self.result = df
+        self.accept()
+
+
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-    dialog = SaveOptionDialog()
-    if dialog.exec_() == QDialog.Accepted:
-        print("선택된 라디오 버튼:", dialog.selected_radiovalue)
+
+    loading_dialog = FileIODialog(
+        "csv 파일을 읽고 있습니다.",
+        lambda: pd.read_csv("massive_original.csv", encoding="euc-kr", sep="|", dtype=object))
+    if loading_dialog.exec_() == QDialog.Accepted:
+        print(len(loading_dialog.result))
+
     sys.exit(app.exec_())

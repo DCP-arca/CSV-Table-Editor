@@ -81,6 +81,8 @@ class CSVTableView(QTableView):
         self.page_size = page_size
         self.setAcceptDrops(False)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.horizontalHeader().sectionDoubleClicked.connect(
+            self.on_horizontalheader_doubleclicked)
 
     def refresh_tableview_width(self):
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
@@ -121,6 +123,11 @@ class CSVTableView(QTableView):
     def on_page_change(self):
         self.model.layoutChanged.emit()
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
+
+    def on_horizontalheader_doubleclicked(self, item):
+        print(item)
+        # TODO from here TODOTODOTODOTOD
+        # 이거 페이지가 있기때문에 애초에 datamanager쪽에서 오더링 해야만함.
 
 
 class PandasModel(QAbstractTableModel):

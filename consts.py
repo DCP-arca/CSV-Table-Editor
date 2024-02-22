@@ -1,25 +1,31 @@
 from dotmap import DotMap
 
-CODE_SEPERATOR = DotMap(
+ENUM_SEPERATOR = DotMap(
     VERTICAL_BAR=0,
     DOT=1
 )
 
-CODE_LOAD_MODE = DotMap(
+ENUM_LOAD_MODE = DotMap(
     NEW=0,
     APPEND=1,
     ADDROW=2
 )
 
-CODE_SAVE_COLUMN = DotMap(
+ENUM_SAVE_COLUMN = DotMap(
     ALL=0,
     SELECTED=1
 )
 
-CODE_SAVE_SELECT = DotMap(
+ENUM_SAVE_SELECT = DotMap(
     ALL=0,
     CHECKED=1,
     ADD_SELECT=2
+)
+
+ENUM_FILEIO_DIALOG_MODE = DotMap(
+    LOAD=0,
+    LOAD_PARQUET=1,
+    SAVE=2
 )
 
 SAVE_KEY_MAP = DotMap(
@@ -27,7 +33,7 @@ SAVE_KEY_MAP = DotMap(
     OPTION_APIKEY="OPTION_APIKEY"
 )
 
-CODE_STR_MAP = DotMap(
+ENUM_STR_MAP = DotMap(
     STDMT="기준월",
     PNU="토지코드",
     LAND_SEQNO="토지일련번호",
@@ -115,4 +121,4 @@ CODE_STR_MAP = DotMap(
 
 
 if __name__ == "__main__":
-    print(CODE_STR_MAP.COL_ADM_SECT_CD)
+    print(ENUM_STR_MAP.COL_ADM_SECT_CD)

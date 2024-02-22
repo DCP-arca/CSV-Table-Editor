@@ -1,6 +1,9 @@
 import pandas as pd
 import os
-from consts import SAVE_KEY_MAP, CODE_LOAD_MODE, CODE_SEPERATOR, CODE_SAVE_SELECT
+
+from PyQt5.QtWidgets import QDialog
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT
+from gui_dialog import FileIODialog
 
 
 def remove_extension(file_path):
@@ -55,28 +58,53 @@ class DataManager:
 
     def load_data(self, src, load_mode, sep_mode):
         parquet_name = remove_extension(src) + ".parquet"
-        sep = "." if sep_mode == CODE_SEPERATOR.DOT else "|"
+        sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
 
         if not self.check_parquet_exists(src):
-            try:
-                df = pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object)
-            except Exception as e:
-                print(e)
+            # 1. csv 파일 읽기
+            loading_dialog = FileIODialog(
+                "csv 파일을 읽고 있습니다.",
+                lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
+            if loading_dialog.exec_() != QDialog.Accepted:
                 return False
-            df.to_parquet(parquet_name)
+
+            # 1. csv 파일 읽기 성공체크
+            df = loading_dialog.result
+            if df.empty:
+                return False
+
+            # 2. .parquet 파일 생성
+            loading_dialog = FileIODialog(
+                ".parquet 파일을 생성 중입니다.",
+                lambda: df.to_parquet(parquet_name))
+            if loading_dialog.exec_() != QDialog.Accepted:
+                return False
+
+            # 2.5. 원본 파일 사이즈 기록
             file_size = os.path.getsize(src)
             filename = get_only_filename(src)
             self.parent.settings.setValue(
                 SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + filename, file_size)
 
-        new_data = pd.read_parquet(parquet_name)
-        if load_mode == CODE_LOAD_MODE.NEW:
+        # 1 or 3. .parquet 파일 읽기
+        loading_dialog = FileIODialog(
+            ".parquet 파일을 읽는 중입니다.",
+            lambda: pd.read_parquet(parquet_name))
+        if loading_dialog.exec_() != QDialog.Accepted:
+            return False
+        new_data = loading_dialog.result
+        if new_data.empty:
+            return False
+
+        # 4. load mode에 따른 동작
+        if load_mode == ENUM_LOAD_MODE.NEW:
             self.data = new_data
-        elif load_mode == CODE_LOAD_MODE.APPEND:
+        elif load_mode == ENUM_LOAD_MODE.APPEND:
             self.data = pd.concat([self.data, new_data])
-        elif load_mode == CODE_LOAD_MODE.ADDROW:
+        elif load_mode == ENUM_LOAD_MODE.ADDROW:
             self.data = pd.merge(self.data, new_data, on='PNU', how='outer')
 
+        # 5. 멤버 변수 초기화
         self.cond_data = self.data.copy(deep=True)
         self.now_conditions = []
 
@@ -95,7 +123,7 @@ class DataManager:
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     def export(self, dst, sep_mode, list_target_column, select_mode):
         # option 1. 분리자 설정
-        sep = "." if sep_mode == CODE_SEPERATOR.DOT else "|"
+        sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
 
         result = self.data.copy(deep=True)
         sel = pd.Series([True] * len(self.data))
@@ -109,14 +137,16 @@ class DataManager:
             result = result[list_target_column]
 
         # option 3. 행 거르기 or select 추가하기
-        if select_mode == CODE_SAVE_SELECT.ALL:
+        if select_mode == ENUM_SAVE_SELECT.ALL:
             pass
-        elif select_mode == CODE_SAVE_SELECT.CHECKED:
+        elif select_mode == ENUM_SAVE_SELECT.CHECKED:
             result = result[sel]
-        elif select_mode == CODE_SAVE_SELECT.ADD_SELECT:
+        elif select_mode == ENUM_SAVE_SELECT.ADD_SELECT:
             result["select"] = pd.Series(sel).astype(int)
 
-        result.to_csv(dst,
-                      sep=sep,
-                      index=False,
-                      encoding="euc-kr")
+        FileIODialog(
+            "csv 파일을 쓰는 중입니다.",
+            lambda: result.to_csv(dst,
+                                  sep=sep,
+                                  index=False,
+                                  encoding="euc-kr"))
