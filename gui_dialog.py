@@ -1,10 +1,24 @@
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
-from consts import SAVE_KEY_MAP, CODE_LOADMODE
+from consts import SAVE_KEY_MAP, CODE_LOAD_MODE, CODE_SEPERATOR
+
+
+LIST_GROUPBOX_TEXT = [
+    ["열 분리자 선택", ["| (버티컬바)", ". (마침표)"]],
+    ["열 내보내기", ["모두", "현재 보이는 열(라벨)만 내보내기"]],
+    ["행 내보내기", ["모두", "체크된 행만 내보내기", "체크된 행을 select열로 추가해서 내보내기"]]
+]
+
+
+def create_empty(minimum_width=0, minimum_height=0):
+    w = QWidget()
+    w.setMinimumWidth(minimum_width)
+    w.setMinimumHeight(minimum_height)
+    return w
 
 
 class OptionDialog(QDialog):
@@ -64,46 +78,121 @@ class LoadOptionDialog(QDialog):
     def __init__(self):
         super().__init__()
 
+        # 기본
         self.setWindowTitle("불러오기")
-        self.layout = QVBoxLayout()
+        layout = QVBoxLayout()
+        self.setLayout(layout)
 
-        self.groupBox = QGroupBox("불러오기 모드 선택")
-        self.radio1 = QRadioButton("새로 불러오기")
-        self.radio1.setChecked(True)
-        self.radio2 = QRadioButton("추가로 불러오기")
-        self.radio3 = QRadioButton("PNU로 열 덧붙이기")
+        layout.addWidget(create_empty(minimum_height=1))
 
-        self.groupBoxLayout = QVBoxLayout()
-        self.groupBoxLayout.addWidget(self.radio1)
-        self.groupBoxLayout.addWidget(self.radio2)
-        self.groupBoxLayout.addWidget(self.radio3)
-        self.groupBox.setLayout(self.groupBoxLayout)
+        # 라디오그룹 - 불러오기 모드
+        groupBox_loadmode = QGroupBox("불러오기 모드 선택")
+        layout.addWidget(groupBox_loadmode)
 
-        self.layout.addWidget(self.groupBox)
+        groupBoxLayout_loadmode = QVBoxLayout()
+        groupBox_loadmode.setLayout(groupBoxLayout_loadmode)
 
-        self.buttonBox = QDialogButtonBox(
+        self.radio1_loadmode = QRadioButton("새로 불러오기")
+        self.radio1_loadmode.setChecked(True)
+        self.radio2_loadmode = QRadioButton("추가로 불러오기")
+        self.radio3_loadmode = QRadioButton("PNU로 열 덧붙이기")
+        groupBoxLayout_loadmode.addWidget(self.radio1_loadmode)
+        groupBoxLayout_loadmode.addWidget(self.radio2_loadmode)
+        groupBoxLayout_loadmode.addWidget(self.radio3_loadmode)
+
+        # 라디오그룹 - 열 분리자 선택
+        groupBox_seperator = QGroupBox("열 분리자 선택")
+        layout.addWidget(groupBox_seperator)
+
+        groupBoxLayout_seperator = QVBoxLayout()
+        groupBox_seperator.setLayout(groupBoxLayout_seperator)
+
+        self.radio1_seperator = QRadioButton("| (버티컬바)")
+        self.radio1_seperator.setChecked(True)
+        self.radio2_seperator = QRadioButton(". (마침표)")
+        groupBoxLayout_seperator.addWidget(self.radio1_seperator)
+        groupBoxLayout_seperator.addWidget(self.radio2_seperator)
+
+        layout.addWidget(create_empty(minimum_height=1))
+
+        # 예 아니오 박스
+        buttonBox = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
 
-        self.layout.addWidget(self.buttonBox)
-
-        self.setLayout(self.layout)
+        layout.addWidget(buttonBox)
 
     def accept(self):
-        if self.radio1.isChecked():
-            self.selected_radiovalue = CODE_LOADMODE.NEW
-        elif self.radio2.isChecked():
-            self.selected_radiovalue = CODE_LOADMODE.APPEND
-        elif self.radio3.isChecked():
-            self.selected_radiovalue = CODE_LOADMODE.ADDROW
+        if self.radio1_loadmode.isChecked():
+            self.selected_radiovalue = CODE_LOAD_MODE.NEW
+        elif self.radio2_loadmode.isChecked():
+            self.selected_radiovalue = CODE_LOAD_MODE.APPEND
+        elif self.radio3_loadmode.isChecked():
+            self.selected_radiovalue = CODE_LOAD_MODE.ADDROW
+
+        if self.radio1_seperator.isChecked():
+            self.selected_seperator = CODE_SEPERATOR.VERTICAL_BAR
+        elif self.radio2_seperator.isChecked():
+            self.selected_seperator = CODE_SEPERATOR.DOT
+
+        super().accept()
+
+
+class SaveOptionDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("저장하기")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("저장하기 옵션 선택"), stretch=1)
+
+        layout.addWidget(create_empty(minimum_height=5))
+
+        self.list_groupbox = []
+        for text_list in LIST_GROUPBOX_TEXT:
+            title = text_list[0]
+            content_list = text_list[1]
+
+            groupBox_seperator = QGroupBox(title)
+            groupBoxLayout = QVBoxLayout()
+            groupBox_seperator.setLayout(groupBoxLayout)
+            layout.addWidget(groupBox_seperator, stretch=1)
+
+            list_groupboxdata = []
+            for content in content_list:
+                radio = QRadioButton(content)
+                groupBoxLayout.addWidget(radio)
+                list_groupboxdata.append(radio)
+            self.list_groupbox.append(list_groupboxdata)
+
+            list_groupboxdata[0].setChecked(True)
+
+        layout.addWidget(create_empty(minimum_height=1))
+
+        buttonBox = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+
+        layout.addWidget(buttonBox)
+
+        self.setLayout(layout)
+
+    def accept(self):
+        self.list_selected_value = []
+        for list_gbdata in self.list_groupbox:
+            for index, radio in enumerate(list_gbdata):
+                if radio.isChecked():
+                    self.list_selected_value.append(index)
+                    break
 
         super().accept()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    dialog = LoadOptionDialog()
+    dialog = SaveOptionDialog()
     if dialog.exec_() == QDialog.Accepted:
         print("선택된 라디오 버튼:", dialog.selected_radiovalue)
     sys.exit(app.exec_())

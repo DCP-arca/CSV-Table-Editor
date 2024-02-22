@@ -1,9 +1,25 @@
 from dotmap import DotMap
 
-CODE_LOADMODE = DotMap(
+CODE_SEPERATOR = DotMap(
+    VERTICAL_BAR=0,
+    DOT=1
+)
+
+CODE_LOAD_MODE = DotMap(
     NEW=0,
     APPEND=1,
     ADDROW=2
+)
+
+CODE_SAVE_COLUMN = DotMap(
+    ALL=0,
+    SELECTED=1
+)
+
+CODE_SAVE_SELECT = DotMap(
+    ALL=0,
+    CHECKED=1,
+    ADD_SELECT=2
 )
 
 SAVE_KEY_MAP = DotMap(

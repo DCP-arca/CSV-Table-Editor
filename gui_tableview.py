@@ -158,7 +158,7 @@ class CSVTableWidget(QWidget):
         upper_button_layout = QHBoxLayout()
         self.layout.addLayout(upper_button_layout)
 
-        self.column_button = QPushButton("라벨선택")
+        self.column_button = QPushButton("열(라벨) 보이기 / 숨기기")
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 

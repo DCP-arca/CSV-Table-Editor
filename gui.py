@@ -9,14 +9,14 @@ from qt_material import apply_stylesheet
 
 import pandas as pd
 
-from consts import SAVE_KEY_MAP
+from consts import SAVE_KEY_MAP, CODE_SAVE_COLUMN
 
 from data_manager import DataManager
 from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog
 from get_mapinfo_from_pnu import get_mapinfo_from_pnu
 
 TITLE_NAME = "CSV Label Adder"
@@ -35,7 +35,7 @@ class MyWidget(QMainWindow):
         self.init_window()
         self.init_menubar()
         self.init_content()
-        self.init_datamanager()
+        self.init_variable()
         self.show()
 
     def init_window(self):
@@ -122,48 +122,61 @@ class MyWidget(QMainWindow):
 
         self.main_splitter.setSizes([600, 300])
 
-    def init_datamanager(self):
+    def init_variable(self):
         self.dm = DataManager(self)
+        self.showing_columns = []
 
     def start_load(self, src=""):
         load_mode = 0
+        sep_mode = 0
 
         if self.dm.data is not None:
             dialog = LoadOptionDialog()
             if dialog.exec_() == QDialog.Accepted:
                 load_mode = dialog.selected_radiovalue
+                sep_mode = dialog.selected_seperator
             else:
                 return
 
         if src:
-            self.load(src, load_mode)
+            self.load(src, load_mode, sep_mode)
         else:
-            self.show_load_dialog(load_mode)
+            self.show_load_dialog(load_mode, sep_mode)
 
-    def load(self, src, load_mode):
+    def load(self, src, load_mode, sep_mode):
         if not self.dm.check_parquet_exists(src):
             QMessageBox.information(
                 self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
 
-        is_success = self.dm.load_data(src, load_mode)
+        is_success = self.dm.load_data(src, load_mode, sep_mode)
 
         if not is_success:
             QMessageBox.information(
                 self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
             return
 
+        self.showing_columns = []
         self.search_widget.initialize(self.dm.data.columns.to_list())
         self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
         self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
         self.export_button.setEnabled(True)
 
     def show_save_dialog(self):
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
-        if file_path:
-            self.dm.export(file_path)
+        dialog = SaveOptionDialog()
+        if dialog.exec_():
+            list_value = dialog.list_selected_value
+            sep_mode = list_value[0]
+            list_target_column = self.showing_columns if list_value[1] == CODE_SAVE_COLUMN.SELECTED else None
+            select_mode = list_value[2]
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
+            if file_path:
+                self.dm.export(file_path,
+                               sep_mode=sep_mode,
+                               list_target_column=list_target_column,
+                               select_mode=select_mode)
 
-    def show_load_dialog(self, load_mode):
+    def show_load_dialog(self, load_mode, sep_mode):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
         fname = select_dialog.getOpenFileName(
@@ -171,13 +184,14 @@ class MyWidget(QMainWindow):
 
         if fname[0]:
             fname = fname[0]
-            self.load(fname, load_mode)
+            self.load(fname, load_mode, sep_mode)
 
     def show_option_dialog(self):
         OptionDialog(self)
 
     def on_clicked_table(self, cur, prev):
-        target_index = cur.row() + (self.table_widget.get_page() - 1) * self.table_widget.page_size
+        target_index = cur.row() + (self.table_widget.get_page() - 1) * \
+            self.table_widget.page_size
 
         self.info_table.update_table(self.dm.cond_data.iloc[target_index])
 
@@ -200,6 +214,7 @@ class MyWidget(QMainWindow):
 
     # 라벨을 세팅할때 호출됨 : 세팅된 것에 맞춰 검색필터를 제한함.
     def on_columnselect_changed(self, selected_columns):
+        self.showing_columns = selected_columns
         self.search_widget.set_columns(selected_columns)
 
     def dragEnterEvent(self, event):
@@ -244,7 +259,7 @@ if __name__ == '__main__':
     apply_stylesheet(app, theme='light_teal_500.xml')
     widget = MyWidget(app)
 
-    widget.load("target.csv", 0)
+    widget.load("target.csv", 0, 0)
 
     time.sleep(0.1)
 
