@@ -10,9 +10,9 @@ def remove_extension(file_path):
 
 def convert_conds_to_item(cond):
     cl = cond.split()
-    min_val = cl[0]
+    min_val = float(cl[0])
     column_name = cl[2]
-    max_val = cl[4]
+    max_val = float(cl[4])
 
     return min_val, column_name, max_val
 
@@ -74,13 +74,13 @@ class DataManager:
         return True
 
     def change_condition(self, conditions):
-        self.cond_data = self.data.copy(deep=True)
         self.now_conditions = conditions
 
+        self.cond_data = self.data.copy(deep=True)
         for cond in conditions:
             min_val, column_name, max_val = convert_conds_to_item(cond)
-            self.cond_data = self.cond_data[(self.cond_data[column_name] >= min_val) &
-                                            (self.cond_data[column_name] <= max_val)]
+            cond_float = self.cond_data[column_name].astype(float)
+            self.cond_data = self.cond_data[(cond_float >= min_val) & (cond_float <= max_val)]
 
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     def export(self, dst):

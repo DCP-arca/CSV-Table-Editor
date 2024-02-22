@@ -177,10 +177,12 @@ class MyWidget(QMainWindow):
         OptionDialog(self)
 
     def on_clicked_table(self, cur, prev):
-        self.info_table.update_table(self.dm.cond_data.iloc[cur.row()])
+        target_index = cur.row() + (self.table_widget.get_page() - 1) * self.table_widget.page_size
+
+        self.info_table.update_table(self.dm.cond_data.iloc[target_index])
 
         apikey = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
-        pnu = self.dm.data.iloc[cur.row()]["PNU"]
+        pnu = self.dm.cond_data.iloc[target_index]["PNU"]
 
         mapinfolist = ["ERROR", "ERROR", "ERROR", "ERROR"]
         if apikey and pnu:
@@ -242,7 +244,7 @@ if __name__ == '__main__':
     apply_stylesheet(app, theme='light_teal_500.xml')
     widget = MyWidget(app)
 
-    # widget.load("test_target.csv")
+    widget.load("target.csv", 0)
 
     time.sleep(0.1)
 

@@ -76,7 +76,7 @@ class ColumnSelectionDialog(QDialog):
 
 
 class CSVTableView(QTableView):
-    def __init__(self, parent=None, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
+    def __init__(self, parent, page_size):
         super(CSVTableView, self).__init__(parent)
         self.page_size = page_size
 
@@ -149,8 +149,10 @@ class PandasModel(QAbstractTableModel):
 class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
 
-    def __init__(self):
+    def __init__(self, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
         super().__init__()
+        self.page_size = page_size
+
         self.layout = QVBoxLayout()
 
         upper_button_layout = QHBoxLayout()
@@ -160,7 +162,7 @@ class CSVTableWidget(QWidget):
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
-        self.table_view = CSVTableView()
+        self.table_view = CSVTableView(self, page_size)
         self.layout.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
@@ -219,11 +221,12 @@ class CSVTableWidget(QWidget):
                 return
             for col in self.data.columns:
                 col_index = self.data.columns.get_loc(col)
-                self.table_view.setColumnHidden(col_index, col not in selected_columns)
+                self.table_view.setColumnHidden(
+                    col_index, col not in selected_columns)
             self.on_columnselect_changed.emit(selected_columns)
 
     def gotoPage(self):
-        page = int(self.page_label.text())
+        page = self.get_page()
         if 1 <= page <= self.table_view.get_maxpage():
             self.table_view.gotoPage(page)
         else:
@@ -239,6 +242,9 @@ class CSVTableWidget(QWidget):
 
     def refresh_page(self):
         self.page_label.setText(str(self.table_view.get_page() + 1))
+
+    def get_page(self):
+        return int(self.page_label.text())
 
     def setEnabledUI(self, is_disabled):
         targets = [self.page_label, self.prev_button,

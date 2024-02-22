@@ -31,5 +31,5 @@ def get_mapinfo_from_pnu(apikey, pnu):
 
 if __name__ == '__main__':
     apikey = "A65F7069-061D-378F-B2D1-5E635A17BA43"
-    pnu = "4311425037106040000"
+    pnu = "4377034032102800000"
     print(get_mapinfo_from_pnu(apikey, pnu))
