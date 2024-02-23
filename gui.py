@@ -198,6 +198,7 @@ class MyWidget(QMainWindow):
         if not self.mapinfo_table.epsg:
             QMessageBox.information(self, '경고', "행을 하나 선택해주세요.")
             return
+        addr = self.mapinfo_table.datalist[0]
 
         # 2. id / secret 체크
         client_id = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTID, "")
@@ -220,8 +221,8 @@ class MyWidget(QMainWindow):
 
         except Exception as e:
             QMessageBox.information(self, '경고', "이미지를 변환하는데 실패했습니다.\n\n"+str(e))
-            
-        ImageViewerDialog(pixmap).exec_()
+
+        ImageViewerDialog(self, addr, pixmap).show()
         
     def show_save_dialog(self):
         dialog = SaveOptionDialog()

@@ -256,9 +256,9 @@ class FileIODialog(QDialog):
 
 
 class ImageViewerDialog(QDialog):
-    def __init__(self, pixmap):
-        super().__init__()
-        self.setWindowTitle("위치 사진으로 보기 (정확한 위치가 아닐 수 있습니다.)")
+    def __init__(self, parent, title, pixmap):
+        super(ImageViewerDialog, self).__init__(parent=parent)
+        self.setWindowTitle("{title} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)".format(title=title))
 
         class CustomImageView(QLabel):
             def __init__(self, first_src):

@@ -44,6 +44,7 @@ class MapInfoTable(QTableWidget):
 
     def set_mapinfo(self, datalist, epsg):
         self.epsg = epsg
+        self.datalist = datalist
         self.update_table(datalist)
 
     def update_table(self, datalist):
