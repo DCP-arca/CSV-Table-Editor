@@ -1,4 +1,5 @@
 import sys
+import math
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QFont
@@ -10,9 +11,6 @@ class InfoTable(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setHidden(True)
         self.verticalHeader().setHidden(True)
-
-        hbox = QHBoxLayout()
-        self.setLayout(hbox)
 
         self.placeholder_text = ""
 
@@ -37,12 +35,15 @@ class InfoTable(QTableWidget):
         painter.restore()
 
     def set_info_text(self, text):
+        m = self.model()
+        m.removeRows(0, m.rowCount())
+        m.removeColumns(0, m.columnCount())
         self.placeholder_text = text
 
     def update_table(self, dataframes):
         self.clear()
 
-        self.setRowCount(int(len(dataframes) / 2))
+        self.setRowCount(math.ceil(len(dataframes) / 2))
         self.setColumnCount(4)
 
         row = 0

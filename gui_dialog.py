@@ -2,7 +2,7 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 import pandas as pd
 
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_FILEIO_DIALOG_MODE
@@ -39,18 +39,24 @@ class OptionDialog(QDialog):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        hbox_key = QHBoxLayout()
-        layout.addLayout(hbox_key)
+        vbox_key = QVBoxLayout()
+        layout.addLayout(vbox_key)
 
-        label_key = QLabel('키 입력:')
-        hbox_key.addWidget(label_key)
+        def create_lineedit_key(title, placeholder, savekey):
+            label = QLabel(title)
+            vbox_key.addWidget(label)
+            lineedit = QLineEdit(self)
+            lineedit.setPlaceholderText(placeholder)
+            lineedit.setText(self.parent.settings.value(savekey, ""))
+            vbox_key.addWidget(lineedit)
+            return lineedit
 
-        lineedit_key = QLineEdit(self)
-        lineedit_key.setPlaceholderText("API 키를 입력해주세요.")
-        lineedit_key.setText(self.parent.settings.value(
-            SAVE_KEY_MAP.OPTION_APIKEY, ""))
-        self.lineedit_key = lineedit_key
-        hbox_key.addWidget(lineedit_key)
+        self.le_apikey = create_lineedit_key(
+            'VWorld API 키 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_APIKEY)
+        self.le_naver_id = create_lineedit_key(
+            'Naver Cloud Client ID 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_CLIENTID)
+        self.le_naver_secret = create_lineedit_key(
+            'Naver Cloud Client Secret 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_CLIENTSECRET)
 
         layout.addStretch(1)
 
@@ -71,7 +77,11 @@ class OptionDialog(QDialog):
 
     def on_click_close_button(self):
         self.parent.settings.setValue(
-            SAVE_KEY_MAP.OPTION_APIKEY, self.lineedit_key.text())
+            SAVE_KEY_MAP.OPTION_APIKEY, self.le_apikey.text())
+        self.parent.settings.setValue(
+            SAVE_KEY_MAP.OPTION_CLIENTID, self.le_naver_id.text())
+        self.parent.settings.setValue(
+            SAVE_KEY_MAP.OPTION_CLIENTSECRET, self.le_naver_secret.text())
         self.accept()
 
 
@@ -243,6 +253,50 @@ class FileIODialog(QDialog):
     def on_finished(self, df):
         self.result = df
         self.accept()
+
+
+class ImageViewerDialog(QDialog):
+    def __init__(self, pixmap):
+        super().__init__()
+        self.setWindowTitle("위치 사진으로 보기 (정확한 위치가 아닐 수 있습니다.)")
+
+        class CustomImageView(QLabel):
+            def __init__(self, first_src):
+                super(CustomImageView, self).__init__()
+                self.set_custom_pixmap(first_src)
+
+            def set_custom_pixmap(self, img_obj):
+                self.pixmap = img_obj
+                self.refresh_size()
+
+            def refresh_size(self):
+                self.setPixmap(self.pixmap.scaled(
+                    self.width(), self.height(),
+                    aspectRatioMode=Qt.KeepAspectRatio,
+                    transformMode=Qt.SmoothTransformation))
+
+            def setFixedSize(self, qsize):
+                super(CustomImageView, self).setFixedSize(qsize)
+                QTimer.singleShot(20, self.refresh_size)
+
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.Resize:
+                    self.refresh_size()
+                    return True
+                return super(CustomImageView, self).eventFilter(obj, event)
+
+        image_result = CustomImageView(pixmap)
+        image_result.setAlignment(Qt.AlignCenter)
+        image_result.setStyleSheet("""
+            background-position: center
+        """)
+        self.installEventFilter(image_result)
+        self.image_result = image_result
+
+        # 레이아웃 설정
+        layout = QVBoxLayout()
+        layout.addWidget(self.image_result)
+        self.setLayout(layout)
 
 
 if __name__ == '__main__':

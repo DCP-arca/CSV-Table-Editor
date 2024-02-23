@@ -5,7 +5,7 @@ from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
-from consts import ENUM_TABLEVIEW_SORTMODE
+from consts import ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE
 from qt_material import apply_stylesheet
 
 # 페이지만들고 넘기기 만들기
@@ -77,8 +77,9 @@ class ColumnSelectionDialog(QDialog):
 
 
 class CSVTableView(QTableView):
-    def __init__(self, parent, page_size):
+    def __init__(self, parent, select_callback, page_size):
         super(CSVTableView, self).__init__(parent)
+        self.select_callback = select_callback
         self.page_size = page_size
         self.setAcceptDrops(False)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -91,15 +92,16 @@ class CSVTableView(QTableView):
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def set_data(self, data):
-        self.set_data_without_init(data)
+        self.model = PandasModel(data, self.page_size)
+        self.setModel(self.model)
+        self.selectionModel().currentChanged.connect(self.select_callback)
+
+    def set_data_with_init_column(self, data):
+        self.set_data(data)
         self.refresh_tableview_width()
         self.set_sort_indicator(0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
         for i in range(self.model.columnCount()):
             self.setColumnHidden(i, False)
-
-    def set_data_without_init(self, data):
-        self.model = PandasModel(data, self.page_size)
-        self.setModel(self.model)
 
     def get_page(self):
         return self.model._current_page
@@ -176,7 +178,7 @@ class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
     on_columnsort_changed = pyqtSignal(str, int)
 
-    def __init__(self, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
+    def __init__(self, select_callback, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
         super().__init__()
         self.page_size = page_size
 
@@ -189,7 +191,7 @@ class CSVTableWidget(QWidget):
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
-        self.table_view = CSVTableView(self, page_size)
+        self.table_view = CSVTableView(self, select_callback, page_size)
         self.layout.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
@@ -223,21 +225,22 @@ class CSVTableWidget(QWidget):
         self.setEnabledUI(False)
         self.setLayout(self.layout)
 
-    def setData(self, data, select_callback=None):
+    def set_data(self, data, mode):
         self.data = data
-        self.now_sort = []
-        self.table_view.set_data(data)
+
+        if mode == ENUM_TABLEVIEW_INITMODE.LOAD:
+            self.table_view.set_data_with_init_column(data)
+            self.now_sort = []
+        elif mode == ENUM_TABLEVIEW_INITMODE.SORT:
+            self.table_view.set_data(data)
+        elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION:
+            self.table_view.set_data(data)
+            self.now_sort = []
+
         self.init_page()
         self.setEnabledUI(True)
 
-        if select_callback:
-            self.table_view.selectionModel().currentChanged.connect(select_callback)
-
-    def sortData(self, data):
-        self.data = data
-        self.table_view.set_data_without_init(data)
-        self.init_page()
-
+    # this function must be called after table_view.set_data
     def init_page(self):
         maxpage = self.table_view.get_maxpage()
         self.maxpage_label.setText("/ " + str(maxpage))
@@ -308,14 +311,3 @@ class CSVTableWidget(QWidget):
             self.now_sort = [index, sort_mode]
             self.table_view.set_sort_indicator(index, sort_mode)
             self.on_columnsort_changed.emit(column_name, sort_mode)
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    apply_stylesheet(app, theme='light_teal_500.xml')
-    table_layout = CSVTableWidget()
-    table_layout.setData(
-        data=pd.read_csv("target.csv", encoding="euc-kr",
-                         sep="|", dtype=object))
-    table_layout.show()
-    sys.exit(app.exec_())

@@ -1,9 +1,11 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
+from PyQt5.QtWidgets import QApplication, QMessageBox, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter
 import re
 import webbrowser
+
+from consts import SAVE_KEY_MAP
 
 STRING_MAPINFO_KEY = ["실제 주소",
                       "다음 맵",
@@ -35,7 +37,14 @@ class MapInfoTable(QTableWidget):
 
         self.itemDoubleClicked.connect(self.try_open_link)
 
-        self.update_table(["", "", "", ""])
+        self.clear_table()
+
+    def clear_table(self):
+        self.set_mapinfo(["", "", "", ""], [])
+
+    def set_mapinfo(self, datalist, epsg):
+        self.epsg = epsg
+        self.update_table(datalist)
 
     def update_table(self, datalist):
         self.clear()

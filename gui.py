@@ -1,5 +1,6 @@
 import sys
 import time
+import io
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QWidget, QTextEdit, QSplitter
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QMessageBox, QDialog, QSizePolicy
@@ -8,16 +9,17 @@ from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
 from qt_material import apply_stylesheet
 
 import pandas as pd
+from PIL import Image
 
-from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN
+from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
 
 from data_manager import DataManager
 from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog
-from get_mapinfo_from_pnu import get_mapinfo_from_pnu
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog, ImageViewerDialog
+from network import get_mapinfo_from_pnu, get_map_img
 
 TITLE_NAME = "CSV Label Adder"
 TOP_NAME = "mgj"
@@ -25,6 +27,21 @@ APP_NAME = "mgj_csv_label_adder"
 
 WIDTH_RIGHT_LAYOUT = 350
 
+def pil2pixmap(im):
+    if im.mode == "RGB":
+        r, g, b = im.split()
+        im = Image.merge("RGB", (b, g, r))
+    elif  im.mode == "RGBA":
+        r, g, b, a = im.split()
+        im = Image.merge("RGBA", (b, g, r, a))
+    elif im.mode == "L":
+        im = im.convert("RGBA")
+    # Bild in RGBA konvertieren, falls nicht bereits passiert
+    im2 = im.convert("RGBA")
+    data = im2.tobytes("raw", "RGBA")
+    qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
+    pixmap = QPixmap.fromImage(qim)
+    return pixmap
 
 class MyWidget(QMainWindow):
 
@@ -89,7 +106,7 @@ class MyWidget(QMainWindow):
             self.on_condition_changed)
         search_layout.addWidget(self.search_widget)
 
-        table_widget = CSVTableWidget()
+        table_widget = CSVTableWidget(self.on_clicked_table)
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
         table_widget.on_columnsort_changed.connect(
@@ -113,6 +130,9 @@ class MyWidget(QMainWindow):
         buttons_layout = QVBoxLayout()
         layout_right.addLayout(buttons_layout)
 
+        openimg_button = QPushButton("사진열기")
+        openimg_button.pressed.connect(self.open_img)
+        buttons_layout.addWidget(openimg_button)
         load_button = QPushButton("불러오기")
         load_button.pressed.connect(self.start_load)
         buttons_layout.addWidget(load_button)
@@ -150,25 +170,66 @@ class MyWidget(QMainWindow):
             QMessageBox.information(
                 self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
 
-        is_success = self.dm.load_data(src, load_mode, sep_mode)
+        error_code = self.dm.load_data(src, load_mode, sep_mode)
 
-        if not is_success:
-            QMessageBox.information(
-                self, '경고', "파일을 불러오는데 실패했습니다. 제대로된 파일이 아닌 것 같습니다.")
+        if error_code == ERRORCODE_LOAD.SUCCESS:
+            self.showing_columns = self.dm.data.columns.to_list()
+            self.search_widget.initialize(self.showing_columns)
+            self.table_widget.set_data(
+                self.dm.data, ENUM_TABLEVIEW_INITMODE.LOAD)
+            self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
+            self.mapinfo_table.clear_table()
+            self.export_button.setEnabled(True)
+        else:
+            error_message = ""
+            if error_code == ERRORCODE_LOAD.CANCEL:
+                error_message = "취소되었습니다."
+            elif error_code == ERRORCODE_LOAD.CSV_FAIL:
+                error_message = "CSV파일을 불러오는데 실패했습니다.\n제대로 된 파일이 아닌 것 같습니다."
+            elif error_code == ERRORCODE_LOAD.PARQUET_FAIL:
+                error_message = "PARQUET파일을 불러오는데 실패했습니다.\n이 에러가 반복되면 .parquet파일을 제거해주세요."
+            elif error_code == ERRORCODE_LOAD.NOT_FOUND_PNU:
+                error_message = "열 중에 'PNU'가 포함되지 않은 파일이 있습니다."
+
+            QMessageBox.information(self, '불러오기 실패', error_message)
+
+    def open_img(self):
+        # 1.epsg 체크
+        if not self.mapinfo_table.epsg:
+            QMessageBox.information(self, '경고', "행을 하나 선택해주세요.")
             return
 
-        self.showing_columns = self.dm.data.columns.to_list()
-        self.search_widget.initialize(self.showing_columns)
-        self.table_widget.setData(self.dm.data, self.on_clicked_table)
-        self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
-        self.export_button.setEnabled(True)
+        # 2. id / secret 체크
+        client_id = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTID, "")
+        client_secret = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTSECRET, "")
+        if not client_id or not client_secret:
+            QMessageBox.information(self, '경고', "Naver Cloud Client 값을 설정해주세요.")
+            return
 
+        # 3. 이미지 얻어오기, content로 뱉어줌.
+        is_success, content = get_map_img(client_id, client_secret, self.mapinfo_table.epsg)
+        if not is_success:
+            QMessageBox.information(self, '경고', "Naver Cloud에 접속하는데 실패했습니다.\n\n"+str(content))
+            return
+
+        # 4. image_data -> pixmap 전환
+        try:
+            image_data = io.BytesIO(content)
+            image = Image.open(image_data)
+            pixmap = pil2pixmap(image)
+
+        except Exception as e:
+            QMessageBox.information(self, '경고', "이미지를 변환하는데 실패했습니다.\n\n"+str(e))
+            
+        ImageViewerDialog(pixmap).exec_()
+        
     def show_save_dialog(self):
         dialog = SaveOptionDialog()
         if dialog.exec_():
             list_value = dialog.list_selected_value
             sep_mode = list_value[0]
-            list_target_column = self.showing_columns if list_value[1] == ENUM_SAVE_COLUMN.SELECTED else None
+            list_target_column = self.showing_columns if list_value[
+                1] == ENUM_SAVE_COLUMN.SELECTED else None
             select_mode = list_value[2]
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
@@ -192,27 +253,33 @@ class MyWidget(QMainWindow):
         OptionDialog(self)
 
     def on_clicked_table(self, cur, prev):
+        # 표시할 행을 구함
         target_index = cur.row() + (self.table_widget.get_page() - 1) * \
             self.table_widget.page_size
+        target_df = self.dm.cond_data.iloc[target_index]
 
-        self.info_table.update_table(self.dm.cond_data.iloc[target_index])
+        # 1. info table 업데이트
+        self.info_table.update_table(target_df)
 
+        # 2. mapinfo table 업데이트
+        # 2.1. apikey, pnu 구함, 못구하면 둘다 공백이 나옴
         apikey = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
-        pnu = self.dm.cond_data.iloc[target_index]["PNU"]
+        pnu = target_df["PNU"] if "PNU" in target_df else ""
 
+        # 2.2. mapinfolist 구함
         mapinfolist = ["ERROR", "ERROR", "ERROR", "ERROR"]
         if apikey and pnu:
-            result = get_mapinfo_from_pnu(apikey, pnu)
-            if result:
-                mapinfolist = result
-
-        self.mapinfo_table.update_table(mapinfolist)
+            mapinfo, epsg = get_mapinfo_from_pnu(apikey, pnu)
+            if mapinfo:
+                mapinfolist = mapinfo
+        self.mapinfo_table.set_mapinfo(mapinfolist, epsg)
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):
         self.dm.change_condition(conditions)
 
-        self.table_widget.setData(self.dm.cond_data, self.on_clicked_table)
+        self.table_widget.set_data(
+            self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.CONDITION)
 
     # 라벨을 세팅할때 호출됨 : 세팅된 것에 맞춰 검색필터를 제한함.
     def on_columnselect_changed(self, selected_columns):
@@ -224,7 +291,7 @@ class MyWidget(QMainWindow):
             "정렬 중입니다.(파일이 크면 오래 걸릴 수 있습니다.)",
             lambda: self.dm.sort(column_name, sort_mode)).exec_()
 
-        self.table_widget.sortData(self.dm.data)
+        self.table_widget.set_data(self.dm.data, ENUM_TABLEVIEW_INITMODE.SORT)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

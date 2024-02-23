@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 from PyQt5.QtWidgets import QDialog
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT, ENUM_TABLEVIEW_SORTMODE
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
 from gui_dialog import FileIODialog
 
 
@@ -56,6 +56,7 @@ class DataManager:
 
         return True
 
+    #
     def load_data(self, src, load_mode, sep_mode):
         parquet_name = remove_extension(src) + ".parquet"
         sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
@@ -66,19 +67,19 @@ class DataManager:
                 "csv 파일을 읽고 있습니다.",
                 lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
             if loading_dialog.exec_() != QDialog.Accepted:
-                return False
+                return ERRORCODE_LOAD.CANCEL
 
             # 1. csv 파일 읽기 성공체크
             df = loading_dialog.result
             if df.empty:
-                return False
+                return ERRORCODE_LOAD.CSV_FAIL
 
             # 2. .parquet 파일 생성
             loading_dialog = FileIODialog(
                 ".parquet 파일을 생성 중입니다.",
                 lambda: df.to_parquet(parquet_name))
             if loading_dialog.exec_() != QDialog.Accepted:
-                return False
+                return ERRORCODE_LOAD.CANCEL
 
             # 2.5. 원본 파일 사이즈 기록
             file_size = os.path.getsize(src)
@@ -91,10 +92,10 @@ class DataManager:
             ".parquet 파일을 읽는 중입니다.",
             lambda: pd.read_parquet(parquet_name))
         if loading_dialog.exec_() != QDialog.Accepted:
-            return False
+            return ERRORCODE_LOAD.CANCEL
         new_data = loading_dialog.result
         if new_data.empty:
-            return False
+            return ERRORCODE_LOAD.PARQUET_FAIL
 
         # 4. load mode에 따른 동작
         if load_mode == ENUM_LOAD_MODE.NEW:
@@ -102,13 +103,17 @@ class DataManager:
         elif load_mode == ENUM_LOAD_MODE.APPEND:
             self.data = pd.concat([self.data, new_data])
         elif load_mode == ENUM_LOAD_MODE.ADDROW:
-            self.data = pd.merge(self.data, new_data, on='PNU', how='outer')
+            try:
+                self.data = pd.merge(self.data, new_data, on='PNU', how='outer')
+            except Exception as e:
+                print(e)
+                return ERRORCODE_LOAD.NOT_FOUND_PNU
 
         # 5. 멤버 변수 초기화
         self.cond_data = self.data.copy(deep=True)
         self.now_conditions = []
 
-        return True
+        return ERRORCODE_LOAD.SUCCESS
 
     def change_condition(self, conditions):
         self.now_conditions = conditions
@@ -160,4 +165,4 @@ class DataManager:
             lambda: result.to_csv(dst,
                                   sep=sep,
                                   index=False,
-                                  encoding="euc-kr"))
+                                  encoding="euc-kr")).exec_()
