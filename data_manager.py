@@ -104,7 +104,8 @@ class DataManager:
             self.data = pd.concat([self.data, new_data])
         elif load_mode == ENUM_LOAD_MODE.ADDROW:
             try:
-                self.data = pd.merge(self.data, new_data, on='PNU', how='outer')
+                self.data = pd.merge(self.data, new_data,
+                                     on='PNU', how='outer')
             except Exception as e:
                 print(e)
                 return ERRORCODE_LOAD.NOT_FOUND_PNU
@@ -125,13 +126,17 @@ class DataManager:
             self.cond_data = self.cond_data[(
                 cond_float >= min_val) & (cond_float <= max_val)]
 
-    def sort(self, column_name, sort_mode):        
+    def sort(self, column_name, sort_mode):
+        def key_func(x): return x.astype(float)
         if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
-            self.data = self.data.sort_values(by=column_name)
-            self.cond_data = self.cond_data.sort_values(by=column_name)
+            self.data = self.data.sort_values(by=column_name, key=key_func)
+            self.cond_data = self.cond_data.sort_values(
+                by=column_name, key=key_func)
         elif sort_mode == ENUM_TABLEVIEW_SORTMODE.DESCEND:
-            self.data = self.data.sort_values(by=column_name, ascending=False)
-            self.cond_data = self.cond_data.sort_values(by=column_name, ascending=False)
+            self.data = self.data.sort_values(
+                by=column_name, ascending=False, key=key_func)
+            self.cond_data = self.cond_data.sort_values(
+                by=column_name, ascending=False, key=key_func)
         elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
             self.data = self.data.sort_index()
             self.cond_data = self.cond_data.sort_index()

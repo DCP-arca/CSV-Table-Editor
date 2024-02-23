@@ -60,6 +60,14 @@ class OptionDialog(QDialog):
 
         layout.addStretch(1)
 
+        layout.addWidget(create_empty(minimum_height=10))
+
+        layout.addWidget(QLabel("글자 크기 : "))
+        layout.addWidget(QLabel("한 페이지에 불러올 행의 갯수 : "))
+        layout.addWidget(QLabel("*주의 : 행의 갯수가 너무 많은 경우 렉이 발생합니다"))
+
+        layout.addStretch(1)
+
         button_close = QPushButton("저장 및 닫기")
         button_close.clicked.connect(self.on_click_close_button)
         self.button_close = button_close
@@ -302,9 +310,7 @@ class ImageViewerDialog(QDialog):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    loading_dialog = FileIODialog(
-        "csv 파일을 읽고 있습니다.",
-        lambda: pd.read_csv("massive_original.csv", encoding="euc-kr", sep="|", dtype=object))
+    loading_dialog = OptionDialog(app)
     if loading_dialog.exec_() == QDialog.Accepted:
         print(len(loading_dialog.result))
 

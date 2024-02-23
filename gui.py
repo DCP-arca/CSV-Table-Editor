@@ -27,11 +27,12 @@ APP_NAME = "mgj_csv_label_adder"
 
 WIDTH_RIGHT_LAYOUT = 350
 
+
 def pil2pixmap(im):
     if im.mode == "RGB":
         r, g, b = im.split()
         im = Image.merge("RGB", (b, g, r))
-    elif  im.mode == "RGBA":
+    elif im.mode == "RGBA":
         r, g, b, a = im.split()
         im = Image.merge("RGBA", (b, g, r, a))
     elif im.mode == "L":
@@ -42,6 +43,7 @@ def pil2pixmap(im):
     qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
     pixmap = QPixmap.fromImage(qim)
     return pixmap
+
 
 class MyWidget(QMainWindow):
 
@@ -202,15 +204,19 @@ class MyWidget(QMainWindow):
 
         # 2. id / secret 체크
         client_id = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTID, "")
-        client_secret = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTSECRET, "")
+        client_secret = self.settings.value(
+            SAVE_KEY_MAP.OPTION_CLIENTSECRET, "")
         if not client_id or not client_secret:
-            QMessageBox.information(self, '경고', "Naver Cloud Client 값을 설정해주세요.")
+            QMessageBox.information(
+                self, '경고', "Naver Cloud Client 값을 설정해주세요.")
             return
 
         # 3. 이미지 얻어오기, content로 뱉어줌.
-        is_success, content = get_map_img(client_id, client_secret, self.mapinfo_table.epsg)
+        is_success, content = get_map_img(
+            client_id, client_secret, self.mapinfo_table.epsg)
         if not is_success:
-            QMessageBox.information(self, '경고', "Naver Cloud에 접속하는데 실패했습니다.\n\n"+str(content))
+            QMessageBox.information(
+                self, '경고', "Naver Cloud에 접속하는데 실패했습니다.\n\n" + str(content))
             return
 
         # 4. image_data -> pixmap 전환
@@ -220,10 +226,11 @@ class MyWidget(QMainWindow):
             pixmap = pil2pixmap(image)
 
         except Exception as e:
-            QMessageBox.information(self, '경고', "이미지를 변환하는데 실패했습니다.\n\n"+str(e))
+            QMessageBox.information(
+                self, '경고', "이미지를 변환하는데 실패했습니다.\n\n" + str(e))
 
         ImageViewerDialog(self, addr, pixmap).show()
-        
+
     def show_save_dialog(self):
         dialog = SaveOptionDialog()
         if dialog.exec_():
@@ -269,11 +276,13 @@ class MyWidget(QMainWindow):
 
         # 2.2. mapinfolist 구함
         mapinfolist = ["ERROR", "ERROR", "ERROR", "ERROR"]
+        epsglist = []
         if apikey and pnu:
-            mapinfo, epsg = get_mapinfo_from_pnu(apikey, pnu)
-            if mapinfo:
-                mapinfolist = mapinfo
-        self.mapinfo_table.set_mapinfo(mapinfolist, epsg)
+            m, e = get_mapinfo_from_pnu(apikey, pnu)
+            if m and e:
+                mapinfolist = m
+                epsglist = e
+        self.mapinfo_table.set_mapinfo(mapinfolist, epsglist)
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):
@@ -287,6 +296,7 @@ class MyWidget(QMainWindow):
         self.showing_columns = selected_columns
         self.search_widget.set_columns(selected_columns)
 
+    # 정렬이 실행될때 호출됨
     def on_columnsort_changed(self, column_name, sort_mode):
         FileIODialog(
             "정렬 중입니다.(파일이 크면 오래 걸릴 수 있습니다.)",
