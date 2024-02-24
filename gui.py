@@ -1,12 +1,9 @@
 import sys
 import time
-import io
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QWidget, QSplitter, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QDialog
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
-
-from PIL import Image
 
 from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
 
@@ -24,23 +21,6 @@ TOP_NAME = "mgj"
 APP_NAME = "mgj_csv_label_adder"
 
 WIDTH_RIGHT_LAYOUT = 350
-
-
-def pil2pixmap(im):
-    if im.mode == "RGB":
-        r, g, b = im.split()
-        im = Image.merge("RGB", (b, g, r))
-    elif im.mode == "RGBA":
-        r, g, b, a = im.split()
-        im = Image.merge("RGBA", (b, g, r, a))
-    elif im.mode == "L":
-        im = im.convert("RGBA")
-    # Bild in RGBA konvertieren, falls nicht bereits passiert
-    im2 = im.convert("RGBA")
-    data = im2.tobytes("raw", "RGBA")
-    qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
-    pixmap = QPixmap.fromImage(qim)
-    return pixmap
 
 
 class MyWidget(QMainWindow):
@@ -230,9 +210,11 @@ class MyWidget(QMainWindow):
 
         # 4. image_data -> pixmap 전환
         try:
-            image_data = io.BytesIO(content)
-            image = Image.open(image_data)
-            pixmap = pil2pixmap(image)
+            # image_data = io.BytesIO(content)
+            # image = Image.open(image_data)
+            # pixmap = pil2pixmap(image)
+            pixmap = QPixmap()
+            pixmap.loadFromData(content)
 
         except Exception as e:
             QMessageBox.information(
