@@ -1,8 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QListWidget, QListWidgetItem, QMessageBox, QStyledItemDelegate
+from PyQt5.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QMessageBox, QStyledItemDelegate
 from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, QSize, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QFont
-import pandas as pd
 
 
 class ConditionDialog(QDialog):

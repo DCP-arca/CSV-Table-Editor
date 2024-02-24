@@ -1,6 +1,6 @@
 import sys
 import math
-from PyQt5.QtWidgets import QApplication, QAbstractItemView, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
+from PyQt5.QtWidgets import QApplication, QAbstractItemView, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QFont, QColor
 

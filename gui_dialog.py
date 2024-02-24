@@ -1,12 +1,10 @@
-import os
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
-from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QHBoxLayout, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_FILEIO_DIALOG_MODE
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR
 
 
 # 주의! 이 txt 순서는 ENUM_SEPERATOR, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW에 영향을 받습니다.

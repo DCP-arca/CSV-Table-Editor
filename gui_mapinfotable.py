@@ -1,11 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QAbstractItemView, QMessageBox, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
+from PyQt5.QtWidgets import QApplication, QAbstractItemView, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter
 import re
 import webbrowser
-
-from consts import SAVE_KEY_MAP
 
 STRING_MAPINFO_KEY = ["실제 주소",
                       "다음 맵",

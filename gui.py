@@ -2,11 +2,9 @@ import sys
 import time
 import io
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QWidget, QTextEdit, QSplitter
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QMessageBox, QDialog, QSizePolicy
-from PyQt5.QtGui import QIcon, QPixmap, QImage, QFontDatabase
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QWidget, QSplitter, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QDialog
+from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
-from qt_material import apply_stylesheet
 
 from PIL import Image
 
@@ -375,8 +373,4 @@ if __name__ == '__main__':
     input_list = sys.argv
     app = QApplication(sys.argv)
     widget = MyWidget(app)
-
-    # DEBUG
-    widget.load("target.csv", 0, 0)
-
     sys.exit(app.exec_())

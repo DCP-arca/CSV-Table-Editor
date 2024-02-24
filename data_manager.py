@@ -126,7 +126,9 @@ class DataManager:
                 cond_float >= min_val) & (cond_float <= max_val)]
 
     def sort(self, column_name, sort_mode):
-        def key_func(x): return x.astype(float)
+        def key_func(x):
+            return x.astype(float)
+
         if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
             self.data = self.data.sort_values(by=column_name, key=key_func)
             self.cond_data = self.cond_data.sort_values(
