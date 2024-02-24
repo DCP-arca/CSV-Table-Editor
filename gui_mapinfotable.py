@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMessageBox, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
+from PyQt5.QtWidgets import QApplication, QAbstractItemView, QMessageBox, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter
 import re
@@ -31,6 +31,8 @@ class MapInfoTable(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setHidden(True)
         self.verticalHeader().setHidden(True)
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
 
         hbox = QHBoxLayout()
         self.setLayout(hbox)

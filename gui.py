@@ -4,11 +4,10 @@ import io
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QWidget, QTextEdit, QSplitter
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QMessageBox, QDialog, QSizePolicy
-from PyQt5.QtGui import QIcon, QPixmap, QImage
+from PyQt5.QtGui import QIcon, QPixmap, QImage, QFontDatabase
 from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
 from qt_material import apply_stylesheet
 
-import pandas as pd
 from PIL import Image
 
 from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
@@ -20,6 +19,7 @@ from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
 from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog, ImageViewerDialog
 from network import get_mapinfo_from_pnu, get_map_img
+from theme import apply_theme
 
 TITLE_NAME = "CSV Label Adder"
 TOP_NAME = "mgj"
@@ -55,6 +55,8 @@ class MyWidget(QMainWindow):
         self.init_menubar()
         self.init_content()
         self.init_variable()
+        setting_fontsize = QSettings(TOP_NAME, APP_NAME).value(SAVE_KEY_MAP.OPTION_FONTSIZE, 13)
+        apply_theme(app, setting_fontsize)
         self.show()
 
     def init_window(self):
@@ -108,7 +110,10 @@ class MyWidget(QMainWindow):
             self.on_condition_changed)
         search_layout.addWidget(self.search_widget)
 
-        table_widget = CSVTableWidget(self.on_clicked_table)
+        table_widget = CSVTableWidget(
+            self.on_clicked_table,
+            self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20)
+        )
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
         table_widget.on_columnsort_changed.connect(
@@ -134,6 +139,8 @@ class MyWidget(QMainWindow):
 
         openimg_button = QPushButton("사진열기")
         openimg_button.pressed.connect(self.open_img)
+        openimg_button.setEnabled(False)
+        self.openimg_button = openimg_button
         buttons_layout.addWidget(openimg_button)
         load_button = QPushButton("불러오기")
         load_button.pressed.connect(self.start_load)
@@ -180,8 +187,10 @@ class MyWidget(QMainWindow):
             self.table_widget.set_data(
                 self.dm.data, ENUM_TABLEVIEW_INITMODE.LOAD)
             self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
+            self.search_widget.set_info_text("왼쪽의 버튼을 눌러 필터를 추가!")
             self.mapinfo_table.clear_table()
             self.export_button.setEnabled(True)
+            self.openimg_button.setEnabled(True)
         else:
             error_message = ""
             if error_code == ERRORCODE_LOAD.CANCEL:
@@ -258,7 +267,7 @@ class MyWidget(QMainWindow):
             self.load(fname, load_mode, sep_mode)
 
     def show_option_dialog(self):
-        OptionDialog(self)
+        OptionDialog(self).exec_()
 
     def on_clicked_table(self, cur, prev):
         # 표시할 행을 구함
@@ -304,6 +313,7 @@ class MyWidget(QMainWindow):
 
         self.table_widget.set_data(self.dm.data, ENUM_TABLEVIEW_INITMODE.SORT)
 
+    # 드래그드럽 이벤트를 위한 고정 템플릿
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.accept()
@@ -343,11 +353,8 @@ class MyWidget(QMainWindow):
 if __name__ == '__main__':
     input_list = sys.argv
     app = QApplication(sys.argv)
-    apply_stylesheet(app, theme='light_teal_500.xml')
     widget = MyWidget(app)
-
+    # DEBUG
     widget.load("target.csv", 0, 0)
-
-    time.sleep(0.1)
 
     sys.exit(app.exec_())

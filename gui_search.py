@@ -156,13 +156,20 @@ class CustomDelegate(QStyledItemDelegate):
 
 
 class PlaceholderTableView(QListView):
+    def __init__(self):
+        super().__init__()
+        self.placeholder_text = ""
+
+    def set_info_text(self, text):
+        self.placeholder_text = text
+
     def paintEvent(self, event):
         super().paintEvent(event)
         if self.model() is not None and self.model().rowCount() > 0:
             return
         painter = QPainter(self.viewport())
         painter.save()
-        col = self.palette().placeholderText().color()
+        col = QColor("#009688")  # self.palette().placeholderText().color()
         painter.setPen(col)
         font = QFont()
         font.setBold(True)
@@ -170,7 +177,7 @@ class PlaceholderTableView(QListView):
         painter.setFont(font)
         fm = self.fontMetrics()
         elided_text = fm.elidedText(
-            "왼쪽의 버튼을 눌러 필터를 추가!", Qt.ElideRight, self.viewport().width()
+            self.placeholder_text, Qt.ElideRight, self.viewport().width()
         )
         painter.drawText(self.viewport().rect(),
                          Qt.AlignCenter, elided_text)
@@ -206,6 +213,7 @@ class SearchWidget(QWidget):
         list_view.setSpacing(4)
         list_view.setFlow(QListView.Flow.LeftToRight)
         list_view.doubleClicked.connect(self.show_edit_dialog)
+        self.list_view = list_view
         self.layout.addWidget(list_view)
 
         self.setLayout(self.layout)
@@ -240,6 +248,9 @@ class SearchWidget(QWidget):
         self.model.removeRow(target_index)
 
         self._func_on_condition_changed()
+
+    def set_info_text(self, text):
+        self.list_view.set_info_text(text)
 
     def _func_on_condition_changed(self):
         self.on_condition_changed.emit(self.model._data.copy())

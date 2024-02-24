@@ -178,7 +178,7 @@ class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
     on_columnsort_changed = pyqtSignal(str, int)
 
-    def __init__(self, select_callback, page_size=DEFAULT_TABLEVIEW_PAGE_SIZE):
+    def __init__(self, select_callback, page_size):
         super().__init__()
         self.page_size = page_size
 

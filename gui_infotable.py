@@ -1,8 +1,8 @@
 import sys
 import math
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
+from PyQt5.QtWidgets import QApplication, QAbstractItemView, QWidget, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView, QHeaderView
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter, QFont
+from PyQt5.QtGui import QPainter, QFont, QColor
 
 
 class InfoTable(QTableWidget):
@@ -11,6 +11,8 @@ class InfoTable(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setHidden(True)
         self.verticalHeader().setHidden(True)
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
 
         self.placeholder_text = ""
 
@@ -20,7 +22,7 @@ class InfoTable(QTableWidget):
             return
         painter = QPainter(self.viewport())
         painter.save()
-        col = self.palette().placeholderText().color()
+        col = QColor("#009688")  # self.palette().placeholderText().color()
         painter.setPen(col)
         font = QFont()
         font.setBold(True)

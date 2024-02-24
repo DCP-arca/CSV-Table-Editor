@@ -3,6 +3,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox
 from PyQt5.QtWidgets import QFileDialog, QLabel, QLineEdit, QCheckBox, QGridLayout, QVBoxLayout, QHBoxLayout, QPushButton, QDialog, QMessageBox, QFileSystemModel, QListView, QSizePolicy
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
+from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_FILEIO_DIALOG_MODE
@@ -27,7 +28,6 @@ class OptionDialog(QDialog):
         super().__init__()
         self.parent = parent
         self.initUI()
-        super().exec_()
 
     def initUI(self):
         parent_pos = self.parent.pos()
@@ -62,9 +62,29 @@ class OptionDialog(QDialog):
 
         layout.addWidget(create_empty(minimum_height=10))
 
-        layout.addWidget(QLabel("글자 크기 : "))
-        layout.addWidget(QLabel("한 페이지에 불러올 행의 갯수 : "))
+        hbox_font = QHBoxLayout()
+        layout.addLayout(hbox_font)
+        hbox_font.addWidget(QLabel("글자 크기 : "))
+        lineedit_font = QLineEdit(self)
+        lineedit_font.setPlaceholderText("13")
+        lineedit_font.setText(str(self.parent.settings.value(
+            SAVE_KEY_MAP.OPTION_FONTSIZE, 13)))
+        lineedit_font.setValidator(QIntValidator(1, 30))
+        self.lineedit_font = lineedit_font
+        hbox_font.addWidget(lineedit_font)
+
+        hbox_page = QHBoxLayout()
+        layout.addLayout(hbox_page)
+        hbox_page.addWidget(QLabel("한 페이지에 불러올 행의 갯수 : "))
+        lineedit_page = QLineEdit(self)
+        lineedit_page.setPlaceholderText("20")
+        lineedit_page.setText(str(self.parent.settings.value(
+            SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20)))
+        lineedit_page.setValidator(QIntValidator(1, 1000))
+        self.lineedit_page = lineedit_page
+        hbox_page.addWidget(lineedit_page)
         layout.addWidget(QLabel("*주의 : 행의 갯수가 너무 많은 경우 렉이 발생합니다"))
+        layout.addWidget(QLabel("*행 갯수는 다음 실행부터 적용됩니다."))
 
         layout.addStretch(1)
 
@@ -90,6 +110,10 @@ class OptionDialog(QDialog):
             SAVE_KEY_MAP.OPTION_CLIENTID, self.le_naver_id.text())
         self.parent.settings.setValue(
             SAVE_KEY_MAP.OPTION_CLIENTSECRET, self.le_naver_secret.text())
+        self.parent.settings.setValue(
+            SAVE_KEY_MAP.OPTION_FONTSIZE, int(self.lineedit_font.text()))
+        self.parent.settings.setValue(
+            SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, int(self.lineedit_page.text()))
         self.accept()
 
 
@@ -266,7 +290,8 @@ class FileIODialog(QDialog):
 class ImageViewerDialog(QDialog):
     def __init__(self, parent, title, pixmap):
         super(ImageViewerDialog, self).__init__(parent=parent)
-        self.setWindowTitle("{title} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)".format(title=title))
+        self.setWindowTitle(
+            "{title} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)".format(title=title))
 
         class CustomImageView(QLabel):
             def __init__(self, first_src):
@@ -282,10 +307,6 @@ class ImageViewerDialog(QDialog):
                     self.width(), self.height(),
                     aspectRatioMode=Qt.KeepAspectRatio,
                     transformMode=Qt.SmoothTransformation))
-
-            def setFixedSize(self, qsize):
-                super(CustomImageView, self).setFixedSize(qsize)
-                QTimer.singleShot(20, self.refresh_size)
 
             def eventFilter(self, obj, event):
                 if event.type() == QEvent.Resize:
