@@ -354,6 +354,7 @@ if __name__ == '__main__':
     input_list = sys.argv
     app = QApplication(sys.argv)
     widget = MyWidget(app)
+    
     # DEBUG
     widget.load("target.csv", 0, 0)
 

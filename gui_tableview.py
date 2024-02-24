@@ -5,7 +5,7 @@ from PyQt5.QtCore import QAbstractTableModel, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
-from consts import ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE
+from consts import ENUM_STR_MAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE
 from qt_material import apply_stylesheet
 
 # 페이지만들고 넘기기 만들기
@@ -76,6 +76,51 @@ class ColumnSelectionDialog(QDialog):
             box.setChecked(False)
 
 
+# 다른것은 바꿀 필요없는 템플릿. 단지 headerData에서 좌, 상의 아이템를 볼 수 있는 것과 page시스템을 위해 data가 변경되어있다는 것.
+class PandasModel(QAbstractTableModel):
+    def __init__(self, data, page_size):
+        super(QAbstractTableModel, self).__init__()
+        self._data = data
+        self._page_size = page_size
+        self._current_page = 0
+        self.column_name_mode = False   # 0 == code / 1 == name / 2 == code(name)
+
+    def rowCount(self, parent=None):
+        return min(self._page_size, len(self._data) - self._current_page * self._page_size)
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1] if not self._data.empty else 0
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                column_code = self._data.columns[section]
+                result = ""
+                if self.column_name_mode == 0:
+                    result = column_code
+                elif self.column_name_mode == 1:
+                    result = ENUM_STR_MAP[column_code]
+                    # null check
+                    result = result if result else column_code
+                elif self.column_name_mode == 2:
+                    name = ENUM_STR_MAP[column_code]
+                    # null check
+                    if name:
+                        result = name + "(" + column_code + ")"
+                    else:
+                        result = column_code
+
+                return result
+            elif orientation == Qt.Vertical:
+                return section + 1 + self._page_size * self._current_page
+        return super().headerData(section, orientation, role)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            return str(self._data.iloc[index.row() + self._current_page * self._page_size, index.column()])
+
+
+# 테이블뷰. 이 안에 PandasModel이 있음.
 class CSVTableView(QTableView):
     def __init__(self, parent, select_callback, page_size):
         super(CSVTableView, self).__init__(parent)
@@ -140,44 +185,22 @@ class CSVTableView(QTableView):
 
     def on_page_change(self):
         self.model.layoutChanged.emit()
-        self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
+        self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def on_horizontalheader_doubleclicked(self, index):
         self.parent().on_horizontalheader_doubleclicked(
             index, self.model.headerData(index, Qt.Horizontal))
-
-
-class PandasModel(QAbstractTableModel):
-    def __init__(self, data, page_size):
-        super(QAbstractTableModel, self).__init__()
-        self._data = data
-        self._page_size = page_size
-        self._current_page = 0
-
-    def rowCount(self, parent=None):
-        return min(self._page_size, len(self._data) - self._current_page * self._page_size)
-
-    def columnCount(self, parent=None):
-        return self._data.shape[1] if not self._data.empty else 0
-
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            if orientation == Qt.Horizontal:
-                return self._data.columns[section]
-            elif orientation == Qt.Vertical:
-                return section + 1 + self._page_size * self._current_page
-        return super().headerData(section, orientation, role)
-
-    def data(self, index, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return str(self._data.iloc[index.row() + self._current_page * self._page_size, index.column()])
         return None
 
 
+# 제일 위에 있는 QVBoxLayout
+# 자식으로는 버튼들과 table_view
 class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
     on_columnsort_changed = pyqtSignal(str, int)
 
+    # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
+    # page_size : 한 페이지에 보여주는 행 갯수
     def __init__(self, select_callback, page_size):
         super().__init__()
         self.page_size = page_size
@@ -187,6 +210,11 @@ class CSVTableWidget(QWidget):
         upper_button_layout = QHBoxLayout()
         self.layout.addLayout(upper_button_layout)
 
+        self.uncheck_button = QPushButton("체크 모두 해제하기")
+        upper_button_layout.addWidget(self.uncheck_button)
+        self.string_button = QPushButton("열(라벨) 코드 <-> 뜻 전환")
+        upper_button_layout.addWidget(self.string_button)
+        self.string_button.clicked.connect(self.toggle_code_to_string)
         self.column_button = QPushButton("열(라벨) 보이기 / 숨기기")
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
@@ -248,6 +276,14 @@ class CSVTableWidget(QWidget):
         self.page_label.setText("1")
         self.refresh_page()
 
+    def uncheck_button(self):
+        pass
+
+    def toggle_code_to_string(self):
+        self.table_view.model.column_name_mode = 0 if self.table_view.model.column_name_mode + 1 > 2 \
+            else self.table_view.model.column_name_mode + 1
+        self.table_view.on_page_change()
+
     def open_column_selection_dialog(self):
         current_selected_columns = [self.data.columns[i] for i in range(
             self.data.shape[1]) if not self.table_view.isColumnHidden(i)]
@@ -287,8 +323,8 @@ class CSVTableWidget(QWidget):
         return int(self.page_label.text())
 
     def setEnabledUI(self, is_disabled):
-        targets = [self.page_label, self.prev_button,
-                   self.next_button, self.column_button]
+        targets = [self.page_label, self.prev_button, self.next_button, self.column_button,
+                   self.uncheck_button, self.string_button]
         for t in targets:
             t.setEnabled(is_disabled)
 
@@ -311,3 +347,15 @@ class CSVTableWidget(QWidget):
             self.now_sort = [index, sort_mode]
             self.table_view.set_sort_indicator(index, sort_mode)
             self.on_columnsort_changed.emit(column_name, sort_mode)
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    table_widget = CSVTableWidget(lambda: print("select_callback 콜"), 20)
+
+    table_widget.set_data(pd.read_csv(
+        "target.csv", encoding="euc-kr", sep="|", dtype=object), 0)
+
+    table_widget.show()
+    sys.exit(app.exec_())
