@@ -1,1 +1,1 @@
-pyinstaller --noconfirm --onefile --windowed --icon "D:\Dev\Workspace\Python\CSV-Table-Editor\icon.ico" --name "CSV Table Editor" "D:\Dev\Workspace\Python\CSV-Table-Editor\gui.py"
+pyinstaller --noconfirm --onefile --windowed --hidden-import=pyarrow.vendored.version --icon "D:\Dev\Workspace\Python\CSV-Table-Editor\icon.ico" --name "CSV Table Editor" "D:\Dev\Workspace\Python\CSV-Table-Editor\gui.py"
