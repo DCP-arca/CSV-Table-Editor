@@ -16,38 +16,43 @@ from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIOD
 from network import get_mapinfo_from_pnu, get_map_img
 from theme import apply_theme
 
-TITLE_NAME = "CSV Label Adder"
+TITLE_NAME = "CSV Table Editor"
 TOP_NAME = "mgj"
 APP_NAME = "mgj_csv_label_adder"
 
 WIDTH_RIGHT_LAYOUT = 350
 
 
-class MyWidget(QMainWindow):
-
+class CSVTableEditor(QMainWindow):
     def __init__(self, app):
         super().__init__()
         self.app = app
 
-        self.init_window()
-        self.init_menubar()
-        self.init_content()
-        self.init_variable()
-        setting_fontsize = QSettings(TOP_NAME, APP_NAME).value(
-            SAVE_KEY_MAP.OPTION_FONTSIZE, 13)
-        apply_theme(app, setting_fontsize)
+        self.init_window()  # 기본설정
+        self.init_menubar()  # 메뉴바 생성
+        self.init_content()  # 내용물 생성
+        self.init_variable()  # 멤버변수 생성
+        apply_theme(app, self.settings.value(
+            SAVE_KEY_MAP.OPTION_FONTSIZE, 13))  # 테마적용
         self.show()
 
     def init_window(self):
         self.setWindowTitle(TITLE_NAME)
         self.settings = QSettings(TOP_NAME, APP_NAME)
+        # settings.value(key, defaultvalue)
         self.move(self.settings.value("pos", QPoint(300, 300)))
         self.resize(self.settings.value("size", QSize(768, 512)))
-        self.setAcceptDrops(True)
+        self.setAcceptDrops(True)  # 메인 윈도우에 드래그드랍을 허용함
 
     def init_menubar(self):
+        # 메뉴바 생성
+        menubar = self.menuBar()
+        menubar.setNativeMenuBar(False)
+        filemenu = menubar.addMenu('&파일')
+
         openAction = QAction('파일 열기(Open file)', self)
         openAction.setShortcut('Ctrl+O')
+        # action 안에 triggered라고 하는 callback(이벤트성 함수)가 있고 거기에 내 함수를 묶음.
         openAction.triggered.connect(self.start_load)
 
         optionAction = QAction('옵션(Option)', self)
@@ -58,49 +63,54 @@ class MyWidget(QMainWindow):
         exitAction.setShortcut('Ctrl+W')
         exitAction.triggered.connect(self.quit_app)
 
-        menubar = self.menuBar()
-        menubar.setNativeMenuBar(False)
-        filemenu = menubar.addMenu('&File')
         filemenu.addAction(openAction)
         filemenu.addAction(optionAction)
         filemenu.addAction(exitAction)
 
     def init_content(self):
+        # 최상단에 스플리터 있음.
         main_splitter = QSplitter()
         self.main_splitter = main_splitter
-        self.setCentralWidget(main_splitter)
+        self.setCentralWidget(main_splitter)  # 스플리터를 메인 위젯으로 설정
 
-        widget_left = QWidget()
+        # 왼쪽 레이아웃
+        widget_left = QWidget()  # 빈 위젯
         main_splitter.addWidget(widget_left)
-        layout_left = QVBoxLayout()
+        layout_left = QVBoxLayout()  # Vertical Box Layout
         widget_left.setLayout(layout_left)
 
+        # 오른쪽 레이아웃
         widget_right = QWidget()
         main_splitter.addWidget(widget_right)
         layout_right = QVBoxLayout()
         widget_right.setLayout(layout_right)
 
+        # 1. 서치 위젯
         search_layout = QHBoxLayout()
         layout_left.addLayout(search_layout)
 
         self.search_widget = SearchWidget()
-        self.search_widget.setFixedHeight(70)
-        self.search_widget.on_condition_changed.connect(
+        self.search_widget.setFixedHeight(70)  # 70 px 고정 높이를 가짐
+        self.search_widget.on_condition_changed.connect(  # on_condition_changed 콜백에 내 함수를 묶음
             self.on_condition_changed)
         search_layout.addWidget(self.search_widget)
 
+        # 2. 테이블 위젯
         table_widget = CSVTableWidget(
             self.on_clicked_table,
             self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20)
         )
+        # 3개의 콜백 묶음
         table_widget.on_page_refreshed.connect(self.on_page_refreshed)
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
         table_widget.on_columnsort_changed.connect(
             self.on_columnsort_changed)
+        # 나중에 써먹어야하니까 self. 으로 내부 변수로 만듬
         self.table_widget = table_widget
         layout_left.addWidget(table_widget)
 
+        # 3. 인포 테이블
         info_layout = QVBoxLayout()
         layout_right.addLayout(info_layout, stretch=200000)
 
@@ -109,17 +119,19 @@ class MyWidget(QMainWindow):
         self.info_table.set_info_text("아래 불러오기 버튼으로\n파일을 불러오세요!")
         info_layout.addWidget(info_table, stretch=2000)
 
+        # 4. 맵인포 테이블
         mapinfo_table = MapInfoTable()
         mapinfo_table.setFixedHeight(155)
         self.mapinfo_table = mapinfo_table
         info_layout.addWidget(mapinfo_table, stretch=1)
 
+        # 5. buttons_layout
         buttons_layout = QVBoxLayout()
         layout_right.addLayout(buttons_layout)
 
-        openimg_button = QPushButton("사진열기")
-        openimg_button.pressed.connect(self.open_img)
-        openimg_button.setEnabled(False)
+        openimg_button = QPushButton("사진열기")  # 첫인자가 텍스트임.
+        openimg_button.pressed.connect(self.open_img)  # pressed 콜백에 함수를 묶고 있음.
+        openimg_button.setEnabled(False)  # 처음 실행시에는 꺼놓음.
         self.openimg_button = openimg_button
         buttons_layout.addWidget(openimg_button)
         load_button = QPushButton("불러오기")
@@ -224,7 +236,7 @@ class MyWidget(QMainWindow):
 
     def show_save_dialog(self):
         dialog = SaveOptionDialog()
-        if dialog.exec_():
+        if dialog.exec_() == QDialog.Accepted:  # 꺼질때까지 스턱
             list_value = dialog.list_selected_value
             sep_mode = list_value[0]
             list_target_column = self.showing_columns if list_value[
@@ -255,16 +267,17 @@ class MyWidget(QMainWindow):
     def show_load_dialog(self, load_mode, sep_mode):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
-        fname = select_dialog.getOpenFileName(
-            self, '열 csv 파일을 선택해주세요.', '', 'CSV File(*.csv *.txt)')
+        fname = select_dialog.getOpenFileName(   # 여기서 dialog가 꺼질때까지 스턱되어있음. dialog가 성공적으로 파일을 고르면, fname으로 고른 파일의 경로가 들어온다.
+            self, '열 csv 파일을 선택해주세요.', 'asdsa', 'CSV File(*.csv *.txt)')
 
-        if fname[0]:
+        if fname[0]:  # 우리는 하나만 고르는 모드이므로, 첫번째 값이 그것임. dialog가 취소하면 fname == []
             fname = fname[0]
             self.load(fname, load_mode, sep_mode)
 
     def show_option_dialog(self):
         OptionDialog(self).exec_()
 
+    # 표의 행을 눌렀을때 호출됨
     def on_clicked_table(self, cur, prev):
         # 표시할 행을 구함
         target_index = cur.row() + (self.table_widget.get_page() - 1) * \
@@ -314,7 +327,7 @@ class MyWidget(QMainWindow):
         self.table_widget.set_data(
             self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.SORT)
 
-    # 드래그드럽 이벤트를 위한 고정 템플릿
+    # 드래그드랍 이벤트를 위한 고정 템플릿
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.accept()
@@ -333,7 +346,7 @@ class MyWidget(QMainWindow):
             QMessageBox.information(self, '경고', "실제 파일을 옮겨주세요.")
 
         fname = furl.toLocalFile()
-        if not fname.endswith(".txt") and not fname.endswith(".csv"):
+        if not fname.endswith(".txt") or not fname.endswith(".csv"):
             QMessageBox.information(self, '경고', "txt나 csv파일만 가능합니다.")
             return
 
@@ -352,7 +365,6 @@ class MyWidget(QMainWindow):
 
 
 if __name__ == '__main__':
-    input_list = sys.argv
-    app = QApplication(sys.argv)
-    widget = MyWidget(app)
-    sys.exit(app.exec_())
+    app = QApplication(sys.argv)  # 어플리케이션 실행
+    window = CSVTableEditor(app)  # 내 위젯 실행되고 스턱.
+    sys.exit(app.exec_())  # 어플리케이션 종료

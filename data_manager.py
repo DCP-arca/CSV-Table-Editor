@@ -56,6 +56,7 @@ class DataManager:
 
         return True
 
+    # 일단 .parquet파일이 존재하는지 체크, 없다면, csv 파일을 읽고 .parquet을 생성후 그것을 불러옴. 이후 load_mode를 적용함.
     def load_data(self, src, load_mode, sep_mode):
         parquet_name = remove_extension(src) + ".parquet"
         sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"

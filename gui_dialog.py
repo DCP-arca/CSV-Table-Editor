@@ -331,11 +331,11 @@ class ImageViewerDialog(QDialog):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    # DEBUG_MODE = OptionDialog
+    DEBUG_MODE = OptionDialog
     # DEBUG_MODE = LoadOptionDialog
     # DEBUG_MODE = SaveOptionDialog
     # DEBUG_MODE = FileIODialog
-    DEBUG_MODE = ImageViewerDialog
+    # DEBUG_MODE = ImageViewerDialog
 
     if DEBUG_MODE == OptionDialog:
         from PyQt5.QtWidgets import QMainWindow
@@ -361,7 +361,7 @@ if __name__ == '__main__':
     if DEBUG_MODE == FileIODialog:
         loading_dialog = FileIODialog(
             "csv 파일을 읽고 있습니다.",
-            lambda: pd.read_csv("test.csv", encoding="euc-kr", sep="|", dtype=object))
+            lambda: pd.read_csv("original.csv", encoding="euc-kr", sep="|", dtype=object))
         if loading_dialog.exec_() == QDialog.Accepted:
             print(loading_dialog.result)
 

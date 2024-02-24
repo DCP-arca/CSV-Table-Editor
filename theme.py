@@ -36,7 +36,8 @@ def rgba_to_string_and_convert(color_string):
 
 # 줄바꿈을 변경해서는 안됩니다.
 def apply_theme(app, font_size):
-    apply_stylesheet(app, theme='light_teal_500.xml', invert_secondary=True, extra=MAIN_COLOR)
+    apply_stylesheet(app, theme='light_teal_500.xml',
+                     invert_secondary=True, extra=MAIN_COLOR)
 
     mycolor = MY_SUB_GRAY_COLOR
     mycolor_16 = rgba_to_string_and_convert(mycolor)
