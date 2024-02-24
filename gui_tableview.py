@@ -78,12 +78,14 @@ class ColumnSelectionDialog(QDialog):
 
 # 다른것은 바꿀 필요없는 템플릿. 단지 headerData에서 좌, 상의 아이템를 볼 수 있는 것과 page시스템을 위해 data가 변경되어있다는 것.
 class PandasModel(QAbstractTableModel):
-    def __init__(self, data, page_size):
-        super(QAbstractTableModel, self).__init__()
+    def __init__(self, parent, data, page_size):
+        super(QAbstractTableModel, self).__init__(parent=parent)
+        self._parent = parent
         self._data = data
         self._page_size = page_size
         self._current_page = 0
-        self.column_name_mode = False   # 0 == code / 1 == name / 2 == code(name)
+        # 0 == code / 1 == name / 2 == code(name)
+        self.column_name_mode = False
 
     def rowCount(self, parent=None):
         return min(self._page_size, len(self._data) - self._current_page * self._page_size)
@@ -112,7 +114,8 @@ class PandasModel(QAbstractTableModel):
 
                 return result
             elif orientation == Qt.Vertical:
-                return section + 1 + self._page_size * self._current_page
+                check_str = "✔ " if section in self._parent._parent.list_check else "   "
+                return check_str + str(section + 1 + self._page_size * self._current_page)
         return super().headerData(section, orientation, role)
 
     def data(self, index, role=Qt.DisplayRole):
@@ -124,20 +127,24 @@ class PandasModel(QAbstractTableModel):
 class CSVTableView(QTableView):
     def __init__(self, parent, select_callback, page_size):
         super(CSVTableView, self).__init__(parent)
+        self._parent = parent
         self.select_callback = select_callback
         self.page_size = page_size
         self.setAcceptDrops(False)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.verticalHeader().setSectionsClickable(False)
+        self.verticalHeader().sectionDoubleClicked.connect(
+            self.parent().on_verticalheader_doubleclicked)
         self.horizontalHeader().setSectionsClickable(False)
         self.horizontalHeader().sectionDoubleClicked.connect(
-            self.on_horizontalheader_doubleclicked)
+            self.parent().on_horizontalheader_doubleclicked)
 
     def refresh_tableview_width(self):
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def set_data(self, data):
-        self.model = PandasModel(data, self.page_size)
+        self.model = PandasModel(self, data, self.page_size)
         self.setModel(self.model)
         self.selectionModel().currentChanged.connect(self.select_callback)
 
@@ -155,21 +162,21 @@ class CSVTableView(QTableView):
         model = self.model
         return int(len(model._data) / model._page_size) + 1
 
-    def nextPage(self):
+    def next_page(self):
         model = self.model
 
         if (model._current_page + 1) * model._page_size < len(model._data):
             model._current_page += 1
             self.on_page_change()
 
-    def prevPage(self):
+    def prev_page(self):
         model = self.model
 
         if model._current_page > 0:
             model._current_page -= 1
             self.on_page_change()
 
-    def gotoPage(self, page):
+    def goto_page(self, page):
         self.model._current_page = page - 1
         self.on_page_change()
 
@@ -187,22 +194,20 @@ class CSVTableView(QTableView):
         self.model.layoutChanged.emit()
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
 
-    def on_horizontalheader_doubleclicked(self, index):
-        self.parent().on_horizontalheader_doubleclicked(
-            index, self.model.headerData(index, Qt.Horizontal))
-        return None
-
 
 # 제일 위에 있는 QVBoxLayout
 # 자식으로는 버튼들과 table_view
 class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
     on_columnsort_changed = pyqtSignal(str, int)
+    on_page_refreshed = pyqtSignal()
 
     # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
     # page_size : 한 페이지에 보여주는 행 갯수
     def __init__(self, select_callback, page_size):
         super().__init__()
+        self.list_check = []
+
         self.page_size = page_size
 
         self.layout = QVBoxLayout()
@@ -212,6 +217,7 @@ class CSVTableWidget(QWidget):
 
         self.uncheck_button = QPushButton("체크 모두 해제하기")
         upper_button_layout.addWidget(self.uncheck_button)
+        self.uncheck_button.clicked.connect(self.reset_check)
         self.string_button = QPushButton("열(라벨) 코드 <-> 뜻 전환")
         upper_button_layout.addWidget(self.string_button)
         self.string_button.clicked.connect(self.toggle_code_to_string)
@@ -226,7 +232,7 @@ class CSVTableWidget(QWidget):
         self.layout.addLayout(self.lower_button_layout)
 
         self.prev_button = QPushButton("이전")
-        self.prev_button.clicked.connect(self.prevPage)
+        self.prev_button.clicked.connect(self.prev_page)
         self.lower_button_layout.addWidget(self.prev_button, stretch=4)
 
         self.lower_button_layout.addStretch(1)
@@ -237,7 +243,7 @@ class CSVTableWidget(QWidget):
         self.page_label = QLineEdit("1")
         self.page_label.setAlignment(Qt.AlignLeft)
         self.page_label.setMaximumWidth(60)
-        self.page_label.returnPressed.connect(self.gotoPage)
+        self.page_label.returnPressed.connect(self.goto_page)
         page_layout.addWidget(self.page_label)
 
         self.maxpage_label = QLabel("/ n")
@@ -247,10 +253,10 @@ class CSVTableWidget(QWidget):
         self.lower_button_layout.addStretch(1)
 
         self.next_button = QPushButton("다음")
-        self.next_button.clicked.connect(self.nextPage)
+        self.next_button.clicked.connect(self.next_page)
         self.lower_button_layout.addWidget(self.next_button, stretch=4)
 
-        self.setEnabledUI(False)
+        self.enable_ui(False)
         self.setLayout(self.layout)
 
     def set_data(self, data, mode):
@@ -266,7 +272,7 @@ class CSVTableWidget(QWidget):
             self.now_sort = []
 
         self.init_page()
-        self.setEnabledUI(True)
+        self.enable_ui(True)
 
     # this function must be called after table_view.set_data
     def init_page(self):
@@ -301,35 +307,51 @@ class CSVTableWidget(QWidget):
                     col_index, col not in selected_columns)
             self.on_columnselect_changed.emit(selected_columns)
 
-    def gotoPage(self):
+    def goto_page(self):
         page = self.get_page()
         if 1 <= page <= self.table_view.get_maxpage():
-            self.table_view.gotoPage(page)
-        else:
-            self.refresh_page()
-
-    def nextPage(self):
-        self.table_view.nextPage()
+            self.table_view.goto_page(page)
         self.refresh_page()
 
-    def prevPage(self):
-        self.table_view.prevPage()
+    def next_page(self):
+        self.table_view.next_page()
         self.refresh_page()
 
+    def prev_page(self):
+        self.table_view.prev_page()
+        self.refresh_page()
+
+    # 페이지 초기화시, 페이지 이동시(찍어서 가기, 앞으로, 뒤로)에 호출됨.
     def refresh_page(self):
         self.page_label.setText(str(self.table_view.get_page() + 1))
+        self.reset_check()
+        self.on_page_refreshed.emit()
 
     def get_page(self):
         return int(self.page_label.text())
 
-    def setEnabledUI(self, is_disabled):
+    def enable_ui(self, is_disabled):
         targets = [self.page_label, self.prev_button, self.next_button, self.column_button,
                    self.uncheck_button, self.string_button]
         for t in targets:
             t.setEnabled(is_disabled)
 
+    def reset_check(self):
+        self.list_check = []
+        self.table_view.on_page_change()
+
+    def on_verticalheader_doubleclicked(self, index):
+        if index in self.list_check:
+            self.list_check.remove(index)
+        else:
+            self.list_check.append(index)
+
+        self.table_view.on_page_change()
+
     # sorting
-    def on_horizontalheader_doubleclicked(self, index, column_name):
+    def on_horizontalheader_doubleclicked(self, index):
+        column_name = self.table_view.model.headerData(index, Qt.Horizontal)
+
         sort_mode = -1
 
         # 처음 정렬

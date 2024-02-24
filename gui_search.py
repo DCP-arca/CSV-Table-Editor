@@ -25,16 +25,16 @@ class ConditionDialog(QDialog):
             if not (column in column_list):
                 column_list.append(column)
 
-        self.column_label = QLabel("Column:")
+        self.column_label = QLabel("열(라벨):")
         self.column_combobox = QComboBox()
         self.column_combobox.addItems(column_list)
         self.column_combobox.setCurrentText(column)
-        self.min_label = QLabel("Min:")
+        self.min_label = QLabel("이상:")
         self.min_input = QLineEdit(min_val or "")
-        self.max_label = QLabel("Max:")
+        self.max_label = QLabel("이하:")
         self.max_input = QLineEdit(max_val or "")
 
-        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button = QPushButton("확인")
         self.confirm_button.clicked.connect(self.confirm_condition)
 
         layout.addWidget(self.column_label)
@@ -46,7 +46,7 @@ class ConditionDialog(QDialog):
         layout.addWidget(self.confirm_button)
 
         if data:
-            self.remove_button = QPushButton("Remove")
+            self.remove_button = QPushButton("제거")
             self.remove_button.clicked.connect(self.remove_condition)
             layout.addWidget(self.remove_button)
 
@@ -68,26 +68,26 @@ class ConditionDialog(QDialog):
 
     def _check_condition_value(self, column, min_val, max_val):
         if not column:
-            QMessageBox.warning(self, "Warning", "Please enter a column name.")
+            QMessageBox.warning(self, "경고", "열(라벨)의 이름을 입력해주세요.")
             return False
         if not min_val or not max_val:
             QMessageBox.warning(
-                self, "Warning", "Please enter both minimum and maximum values.")
+                self, "경고", "이상/이하의 숫자를 입력해 주세요.")
             return False
         try:
             min_val = float(min_val)
             max_val = float(max_val)
         except ValueError:
             QMessageBox.warning(
-                self, "Warning", "Please enter valid numeric values for min and max.")
+                self, "경고", "이상/이하 칸에 올바른 숫자를 입력해주세요.")
             return False
         if len(column) < 1 or len(column) > 120:
             QMessageBox.warning(
-                self, "Warning", "Column name must be between 1 and 120 characters long.")
+                self, "경고", "열(라벨)의 이름은 1자 이상, 120자 이하여야합니다.")
             return False
         if min_val > max_val:
             QMessageBox.warning(
-                self, "Warning", "Minimum value must be less than maximum value.")
+                self, "경고", "이상 칸의 숫자가 이하 칸의 숫자보다 큽니다.")
             return False
 
         return True

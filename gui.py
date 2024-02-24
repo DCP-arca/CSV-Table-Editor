@@ -10,7 +10,7 @@ from qt_material import apply_stylesheet
 
 from PIL import Image
 
-from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
+from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
 
 from data_manager import DataManager
 from gui_tableview import CSVTableWidget
@@ -55,7 +55,8 @@ class MyWidget(QMainWindow):
         self.init_menubar()
         self.init_content()
         self.init_variable()
-        setting_fontsize = QSettings(TOP_NAME, APP_NAME).value(SAVE_KEY_MAP.OPTION_FONTSIZE, 13)
+        setting_fontsize = QSettings(TOP_NAME, APP_NAME).value(
+            SAVE_KEY_MAP.OPTION_FONTSIZE, 13)
         apply_theme(app, setting_fontsize)
         self.show()
 
@@ -114,6 +115,7 @@ class MyWidget(QMainWindow):
             self.on_clicked_table,
             self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20)
         )
+        table_widget.on_page_refreshed.connect(self.on_page_refreshed)
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
         table_widget.on_columnsort_changed.connect(
@@ -182,10 +184,10 @@ class MyWidget(QMainWindow):
         error_code = self.dm.load_data(src, load_mode, sep_mode)
 
         if error_code == ERRORCODE_LOAD.SUCCESS:
-            self.showing_columns = self.dm.data.columns.to_list()
+            self.showing_columns = self.dm.cond_data.columns.to_list()
             self.search_widget.initialize(self.showing_columns)
             self.table_widget.set_data(
-                self.dm.data, ENUM_TABLEVIEW_INITMODE.LOAD)
+                self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.LOAD)
             self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
             self.search_widget.set_info_text("왼쪽의 버튼을 눌러 필터를 추가!")
             self.mapinfo_table.clear_table()
@@ -251,10 +253,24 @@ class MyWidget(QMainWindow):
             file_path, _ = QFileDialog.getSaveFileName(
                 self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
             if file_path:
+                # 내보내기 전, 체크 확인, 체크 모드라면 df자체를 담아서 보냄.
+                list_checked = []
+                if select_mode == ENUM_SAVE_ROW.CHECKED or select_mode == ENUM_SAVE_ROW.CHECKED_SELECT:
+                    if not self.table_widget.list_check:
+                        QMessageBox.information(
+                            self, '경고', "내보낼 체크가 안되어있습니다.")
+                        return
+                    page_seed = (self.table_widget.get_page() -
+                                 1) * self.table_widget.page_size
+                    for index in self.table_widget.list_check:
+                        list_checked.append(index + page_seed)
+
+                # 내보내기
                 self.dm.export(file_path,
                                sep_mode=sep_mode,
                                list_target_column=list_target_column,
-                               select_mode=select_mode)
+                               select_mode=select_mode,
+                               list_checked=list_checked)
 
     def show_load_dialog(self, load_mode, sep_mode):
         select_dialog = QFileDialog()
@@ -300,6 +316,10 @@ class MyWidget(QMainWindow):
         self.table_widget.set_data(
             self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.CONDITION)
 
+    # 페이지가 새로고침될때 호출됨 (언제 호출되는지는 tableview.refresh_page 참조)
+    def on_page_refreshed(self):
+        self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
+
     # 라벨을 세팅할때 호출됨 : 세팅된 것에 맞춰 검색필터를 제한함.
     def on_columnselect_changed(self, selected_columns):
         self.showing_columns = selected_columns
@@ -311,7 +331,8 @@ class MyWidget(QMainWindow):
             "정렬 중입니다.(파일이 크면 오래 걸릴 수 있습니다.)",
             lambda: self.dm.sort(column_name, sort_mode)).exec_()
 
-        self.table_widget.set_data(self.dm.data, ENUM_TABLEVIEW_INITMODE.SORT)
+        self.table_widget.set_data(
+            self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.SORT)
 
     # 드래그드럽 이벤트를 위한 고정 템플릿
     def dragEnterEvent(self, event):
@@ -354,7 +375,7 @@ if __name__ == '__main__':
     input_list = sys.argv
     app = QApplication(sys.argv)
     widget = MyWidget(app)
-    
+
     # DEBUG
     widget.load("target.csv", 0, 0)
 

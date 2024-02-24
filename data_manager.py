@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 from PyQt5.QtWidgets import QDialog
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_SELECT, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_ROW, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
 from gui_dialog import FileIODialog
 
 
@@ -56,7 +56,6 @@ class DataManager:
 
         return True
 
-    #
     def load_data(self, src, load_mode, sep_mode):
         parquet_name = remove_extension(src) + ".parquet"
         sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
@@ -142,28 +141,43 @@ class DataManager:
             self.cond_data = self.cond_data.sort_index()
 
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
-    def export(self, dst, sep_mode, list_target_column, select_mode):
+    def export(self, dst, sep_mode, list_target_column, select_mode, list_checked):
         # option 1. 분리자 설정
         sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
 
-        result = self.data.copy(deep=True)
-        sel = pd.Series([True] * len(self.data))
-        for cond in self.now_conditions:
-            min_val, column_name, max_val = convert_conds_to_item(cond)
-            result_float = result[column_name].astype(float)
-            sel &= (result_float >= min_val) & (result_float <= max_val)
+        # option 2. 행 거르기 or select 추가하기
+        if select_mode == ENUM_SAVE_ROW.ALL:
+            result = self.data.copy(deep=True)
+        elif select_mode == ENUM_SAVE_ROW.FILTERED:
+            result = self.data.copy(deep=True)
+            sel = pd.Series([True] * len(self.data))
+            for cond in self.now_conditions:
+                min_val, column_name, max_val = convert_conds_to_item(cond)
+                result_float = result[column_name].astype(float)
+                sel &= (result_float >= min_val) & (result_float <= max_val)
+            result = result[sel]
+        elif select_mode == ENUM_SAVE_ROW.FILTERED_SELECT:
+            result = self.data.copy(deep=True)
+            sel = pd.Series([True] * len(self.data))
+            for cond in self.now_conditions:
+                min_val, column_name, max_val = convert_conds_to_item(cond)
+                result_float = result[column_name].astype(float)
+                sel &= (result_float >= min_val) & (result_float <= max_val)
+            result["select"] = pd.Series(sel).astype(int)
+        elif select_mode == ENUM_SAVE_ROW.CHECKED:
+            list_checked_df = []
+            for index in list_checked:
+                list_checked_df.append(self.cond_data.iloc[index])
+            result = pd.concat(list_checked_df)
+        elif select_mode == ENUM_SAVE_ROW.CHECKED_SELECT:
+            result = self.data.copy(deep=True)
+            sel = pd.Series([False] * len(self.data))
+            sel.iloc[list_checked] = True
+            result["select"] = pd.Series(sel).astype(int)
 
-        # option 2. 열(라벨) 거르기
+        # option 3. 열(라벨) 거르기
         if list_target_column:
             result = result[list_target_column]
-
-        # option 3. 행 거르기 or select 추가하기
-        if select_mode == ENUM_SAVE_SELECT.ALL:
-            pass
-        elif select_mode == ENUM_SAVE_SELECT.CHECKED:
-            result = result[sel]
-        elif select_mode == ENUM_SAVE_SELECT.ADD_SELECT:
-            result["select"] = pd.Series(sel).astype(int)
 
         FileIODialog(
             "csv 파일을 쓰는 중입니다.",

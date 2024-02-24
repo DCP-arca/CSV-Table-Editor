@@ -1,5 +1,17 @@
 from dotmap import DotMap
 
+###
+#
+#   상수 == Consts에 보관, UPPERCASE
+#
+#   ClassName == PascalCase
+#   file_name == snake_case
+#   PyQt5 Function == camelCase
+#   function == snake_case
+#   variable == snake_case
+#
+###
+
 ENUM_SEPERATOR = DotMap(
     VERTICAL_BAR=0,
     DOT=1
@@ -16,10 +28,12 @@ ENUM_SAVE_COLUMN = DotMap(
     SELECTED=1
 )
 
-ENUM_SAVE_SELECT = DotMap(
+ENUM_SAVE_ROW = DotMap(
     ALL=0,
-    CHECKED=1,
-    ADD_SELECT=2
+    FILTERED=1,
+    FILTERED_SELECT=2,
+    CHECKED=3,
+    CHECKED_SELECT=4
 )
 
 ENUM_FILEIO_DIALOG_MODE = DotMap(

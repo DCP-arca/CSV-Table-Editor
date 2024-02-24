@@ -9,10 +9,12 @@ import pandas as pd
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_FILEIO_DIALOG_MODE
 
 
+# 주의! 이 txt 순서는 ENUM_SEPERATOR, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW에 영향을 받습니다.
 LIST_GROUPBOX_TEXT = [
     ["열 분리자 선택", ["| (버티컬바)", ". (마침표)"]],
     ["열 내보내기", ["모두", "현재 보이는 열(라벨)만 내보내기"]],
-    ["행 내보내기", ["모두", "체크된 행만 내보내기", "체크된 행을 select열로 추가해서 내보내기"]]
+    ["행 내보내기", ["모두", "불러와진 행만 내보내기", "불러와진 행에 select열 추가해 내보내기", "체크된 행만 내보내기",
+                "체크된 행에 select열 추가해 내보내기"]]
 ]
 
 
