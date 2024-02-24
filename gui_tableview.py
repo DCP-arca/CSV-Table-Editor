@@ -375,7 +375,7 @@ if __name__ == '__main__':
     table_widget = CSVTableWidget(lambda: print("select_callback 콜"), 20)
 
     table_widget.set_data(pd.read_csv(
-        "target.csv", encoding="euc-kr", sep="|", dtype=object), 0)
+        "test.csv", encoding="euc-kr", sep="|", dtype=object), 0)
 
     table_widget.show()
     sys.exit(app.exec_())

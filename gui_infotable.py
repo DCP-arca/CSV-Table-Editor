@@ -62,8 +62,12 @@ class InfoTable(QTableWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
+    import pandas as pd
     table_widget = InfoTable()
-    # table_widget.update_table(dataframes)
+
+    dataframes = pd.read_csv(
+        "test.csv", encoding="euc-kr", sep="|", dtype=object)
+    table_widget.update_table(dataframes.iloc[0])
 
     table_widget.show()
     sys.exit(app.exec_())

@@ -44,9 +44,9 @@ class MapInfoTable(QTableWidget):
     def set_mapinfo(self, datalist, epsg):
         self.epsg = epsg
         self.datalist = datalist
-        self.update_table(datalist)
+        self._update_table(datalist)
 
-    def update_table(self, datalist):
+    def _update_table(self, datalist):
         self.clear()
 
         self.setRowCount(5)
@@ -84,7 +84,13 @@ class MapInfoTable(QTableWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
+    from network import get_mapinfo_from_pnu
+    apikey = "A65F7069-061D-378F-B2D1-5E635A17BA43"
+    pnu = "4377034032102800000"
+
+    l, b = get_mapinfo_from_pnu(apikey, pnu)
     table_widget = MapInfoTable()
+    table_widget.set_mapinfo(l, b)
 
     table_widget.show()
     sys.exit(app.exec_())

@@ -331,8 +331,55 @@ class ImageViewerDialog(QDialog):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    loading_dialog = OptionDialog(app)
-    if loading_dialog.exec_() == QDialog.Accepted:
-        print(len(loading_dialog.result))
+    # DEBUG_MODE = OptionDialog
+    # DEBUG_MODE = LoadOptionDialog
+    # DEBUG_MODE = SaveOptionDialog
+    # DEBUG_MODE = FileIODialog
+    DEBUG_MODE = ImageViewerDialog
 
-    sys.exit(app.exec_())
+    if DEBUG_MODE == OptionDialog:
+        from PyQt5.QtWidgets import QMainWindow
+        from PyQt5.QtCore import QSettings
+        TOP_NAME = "mgj"
+        APP_NAME = "mgj_csv_label_adder"
+        qw = QMainWindow()
+        qw.settings = QSettings(TOP_NAME, APP_NAME)
+        loading_dialog = OptionDialog(qw)
+        if loading_dialog.exec_() == QDialog.Accepted:
+            print(len(loading_dialog.result))
+
+    if DEBUG_MODE == LoadOptionDialog:
+        loading_dialog = LoadOptionDialog()
+        if loading_dialog.exec_() == QDialog.Accepted:
+            print(len(loading_dialog.result))
+
+    if DEBUG_MODE == SaveOptionDialog:
+        loading_dialog = SaveOptionDialog()
+        if loading_dialog.exec_() == QDialog.Accepted:
+            print(len(loading_dialog.result))
+
+    if DEBUG_MODE == FileIODialog:
+        loading_dialog = FileIODialog(
+            "csv 파일을 읽고 있습니다.",
+            lambda: pd.read_csv("test.csv", encoding="euc-kr", sep="|", dtype=object))
+        if loading_dialog.exec_() == QDialog.Accepted:
+            print(loading_dialog.result)
+
+    if DEBUG_MODE == ImageViewerDialog:
+        from PyQt5.QtWidgets import QMainWindow
+        from PyQt5.QtGui import QPixmap
+        from network import get_mapinfo_from_pnu, get_map_img
+        apikey = "A65F7069-061D-378F-B2D1-5E635A17BA43"
+        pnu = "4377034032102800000"
+
+        client_id = "287jnrkvrn"
+        client_secret = "KVny3P6P59caY0Cs2AEp8HW6EYxIB8nVm9UEhsbA"
+
+        l, b = get_mapinfo_from_pnu(apikey, pnu)
+        iss, content = get_map_img(client_id, client_secret, b)
+        pixmap = QPixmap()
+        pixmap.loadFromData(content)
+        qw = QMainWindow()
+        ImageViewerDialog(qw, title=l[0], pixmap=pixmap).show()
+
+        sys.exit(app.exec_())
