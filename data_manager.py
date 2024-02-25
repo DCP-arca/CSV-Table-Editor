@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+from simpledbf import Dbf5
 
 from PyQt5.QtWidgets import QDialog
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_ROW, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
@@ -63,9 +64,16 @@ class DataManager:
 
         if not self.check_parquet_exists(src):
             # 1. csv 파일 읽기
-            loading_dialog = FileIODialog(
-                "csv 파일을 읽고 있습니다.",
-                lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
+            if src.endswith(".dbf"):
+                def convert_to_df():
+                    dbf = Dbf5(src, codec='euc-kr')
+                    return dbf.to_dataframe()
+
+                loading_dialog = FileIODialog("dbf 파일을 읽고 있습니다.", convert_to_df)
+            else:
+                loading_dialog = FileIODialog(
+                    "csv 파일을 읽고 있습니다.",
+                    lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
             if loading_dialog.exec_() != QDialog.Accepted:
                 return ERRORCODE_LOAD.CANCEL
 
@@ -188,3 +196,9 @@ class DataManager:
                                   sep=sep,
                                   index=False,
                                   encoding="euc-kr")).exec_()
+
+if __name__ == "__main__":
+    dbf = Dbf5("original2.dbf", codec='euc-kr')
+    print(dbf)
+    df = dbf.to_dataframe()
+    print(df)

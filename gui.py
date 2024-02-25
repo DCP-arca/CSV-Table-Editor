@@ -268,7 +268,7 @@ class CSVTableEditor(QMainWindow):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
         fname = select_dialog.getOpenFileName(   # 여기서 dialog가 꺼질때까지 스턱되어있음. dialog가 성공적으로 파일을 고르면, fname으로 고른 파일의 경로가 들어온다.
-            self, '열 csv 파일을 선택해주세요.', 'asdsa', 'CSV File(*.csv *.txt)')
+            self, '열 csv 파일을 선택해주세요.', '', 'CSV File(*.csv *.txt *.dbf)')
 
         if fname[0]:  # 우리는 하나만 고르는 모드이므로, 첫번째 값이 그것임. dialog가 취소하면 fname == []
             fname = fname[0]
@@ -346,8 +346,8 @@ class CSVTableEditor(QMainWindow):
             QMessageBox.information(self, '경고', "실제 파일을 옮겨주세요.")
 
         fname = furl.toLocalFile()
-        if not fname.endswith(".txt") or not fname.endswith(".csv"):
-            QMessageBox.information(self, '경고', "txt나 csv파일만 가능합니다.")
+        if not fname.endswith(".txt") and not fname.endswith(".csv") and not fname.endswith(".dbf"):
+            QMessageBox.information(self, '경고', "txt나 csv, dbf파일만 가능합니다.")
             return
 
         self.start_load(fname)
