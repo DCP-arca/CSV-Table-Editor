@@ -153,13 +153,13 @@ class CSVTableEditor(QMainWindow):
         load_mode = 0
         sep_mode = 0
 
-        if self.dm.data is not None:
-            dialog = LoadOptionDialog()
-            if dialog.exec_() == QDialog.Accepted:
-                load_mode = dialog.selected_radiovalue
-                sep_mode = dialog.selected_seperator
-            else:
-                return
+        is_already_loaded = (self.dm.data is not None)
+        dialog = LoadOptionDialog(is_already_loaded)
+        if dialog.exec_() == QDialog.Accepted:
+            load_mode = dialog.selected_radiovalue
+            sep_mode = dialog.selected_seperator
+        else:
+            return
 
         if src:
             self.load(src, load_mode, sep_mode)

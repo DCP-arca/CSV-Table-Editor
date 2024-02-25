@@ -59,7 +59,7 @@ class DataManager:
     # 일단 .parquet파일이 존재하는지 체크, 없다면, csv 파일을 읽고 .parquet을 생성후 그것을 불러옴. 이후 load_mode를 적용함.
     def load_data(self, src, load_mode, sep_mode):
         parquet_name = remove_extension(src) + ".parquet"
-        sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
+        sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
 
         if not self.check_parquet_exists(src):
             # 1. csv 파일 읽기
@@ -146,7 +146,7 @@ class DataManager:
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     def export(self, dst, sep_mode, list_target_column, select_mode, list_checked):
         # option 1. 분리자 설정
-        sep = "." if sep_mode == ENUM_SEPERATOR.DOT else "|"
+        sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
 
         # option 2. 행 거르기 or select 추가하기
         if select_mode == ENUM_SAVE_ROW.ALL:

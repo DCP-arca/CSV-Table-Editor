@@ -14,7 +14,7 @@ from dotmap import DotMap
 
 ENUM_SEPERATOR = DotMap(
     VERTICAL_BAR=0,
-    DOT=1
+    COMMA=1
 )
 
 ENUM_LOAD_MODE = DotMap(

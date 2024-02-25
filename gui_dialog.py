@@ -9,7 +9,7 @@ from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR
 
 # 주의! 이 txt 순서는 ENUM_SEPERATOR, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW에 영향을 받습니다.
 LIST_GROUPBOX_TEXT = [
-    ["열 분리자 선택", ["| (버티컬바)", ". (마침표)"]],
+    ["열 분리자 선택", ["| (버티컬바)", ", (쉼표)"]],
     ["열 내보내기", ["모두", "현재 보이는 열(라벨)만 내보내기"]],
     ["행 내보내기", ["모두", "불러와진 행만 내보내기", "불러와진 행에 select열 추가해 내보내기", "체크된 행만 내보내기",
                 "체크된 행에 select열 추가해 내보내기"]]
@@ -118,8 +118,9 @@ class OptionDialog(QDialog):
 
 
 class LoadOptionDialog(QDialog):
-    def __init__(self):
+    def __init__(self, is_already_loaded):
         super().__init__()
+        self.is_already_loaded = is_already_loaded
 
         # 기본
         self.setWindowTitle("불러오기")
@@ -142,6 +143,9 @@ class LoadOptionDialog(QDialog):
         groupBoxLayout_loadmode.addWidget(self.radio1_loadmode)
         groupBoxLayout_loadmode.addWidget(self.radio2_loadmode)
         groupBoxLayout_loadmode.addWidget(self.radio3_loadmode)
+        if not is_already_loaded:
+            self.radio2_loadmode.setEnabled(False)
+            self.radio3_loadmode.setEnabled(False)
 
         # 라디오그룹 - 열 분리자 선택
         groupBox_seperator = QGroupBox("열 분리자 선택")
@@ -152,7 +156,7 @@ class LoadOptionDialog(QDialog):
 
         self.radio1_seperator = QRadioButton("| (버티컬바)")
         self.radio1_seperator.setChecked(True)
-        self.radio2_seperator = QRadioButton(". (마침표)")
+        self.radio2_seperator = QRadioButton(", (쉼표)")
         groupBoxLayout_seperator.addWidget(self.radio1_seperator)
         groupBoxLayout_seperator.addWidget(self.radio2_seperator)
 
@@ -177,7 +181,7 @@ class LoadOptionDialog(QDialog):
         if self.radio1_seperator.isChecked():
             self.selected_seperator = ENUM_SEPERATOR.VERTICAL_BAR
         elif self.radio2_seperator.isChecked():
-            self.selected_seperator = ENUM_SEPERATOR.DOT
+            self.selected_seperator = ENUM_SEPERATOR.COMMA
 
         super().accept()
 
@@ -331,11 +335,11 @@ class ImageViewerDialog(QDialog):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    DEBUG_MODE = OptionDialog
+    # DEBUG_MODE = OptionDialog
     # DEBUG_MODE = LoadOptionDialog
     # DEBUG_MODE = SaveOptionDialog
     # DEBUG_MODE = FileIODialog
-    # DEBUG_MODE = ImageViewerDialog
+    DEBUG_MODE = ImageViewerDialog
 
     if DEBUG_MODE == OptionDialog:
         from PyQt5.QtWidgets import QMainWindow
