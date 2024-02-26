@@ -23,6 +23,19 @@ APP_NAME = "mgj_csv_label_adder"
 WIDTH_RIGHT_LAYOUT = 350
 
 
+def strtobool(val):
+    if isinstance(val, bool):
+        return val
+
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
+
+
 class CSVTableEditor(QMainWindow):
     def __init__(self, app):
         super().__init__()
@@ -97,8 +110,10 @@ class CSVTableEditor(QMainWindow):
 
         # 2. 테이블 위젯
         table_widget = CSVTableWidget(
+            self,
             self.on_clicked_table,
-            self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20)
+            self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20),
+            strtobool(self.settings.value(SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")),
         )
         # 3개의 콜백 묶음
         table_widget.on_page_refreshed.connect(self.on_page_refreshed)
@@ -178,7 +193,10 @@ class CSVTableEditor(QMainWindow):
             self.search_widget.initialize(self.showing_columns)
             self.table_widget.set_data(
                 self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.LOAD)
-            self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
+            if strtobool(self.settings.value(SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")):
+                self.info_table.set_info_text("저사양 모드 실행중\n(표 숨겨짐)")
+            else:
+                self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
             self.search_widget.set_info_text("왼쪽의 버튼을 눌러 필터를 추가!")
             self.mapinfo_table.clear_table()
             self.export_button.setEnabled(True)
@@ -303,8 +321,13 @@ class CSVTableEditor(QMainWindow):
         self.mapinfo_table.set_mapinfo(mapinfolist, epsglist)
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
-    def on_condition_changed(self, conditions):
-        self.dm.change_condition(conditions)
+    def on_condition_changed(self, conditions, original_data):
+        is_success = self.dm.change_condition(conditions)
+        if not is_success:
+            QMessageBox.information(self, '경고', "조건식이 숫자가 아니거나 잘못되었습니다.")
+
+            self.search_widget.on_edit_failed(original_data)
+            return
 
         self.table_widget.set_data(
             self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.CONDITION)

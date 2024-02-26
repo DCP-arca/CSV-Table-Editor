@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox, QAbstractItemView, QHeaderView, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import QAbstractTableModel, Qt, pyqtSignal
-from PyQt5.QtGui import QIntValidator
+from PyQt5.QtGui import QIntValidator, QPainter, QColor, QFont
 import pandas as pd
 
 from consts import ENUM_STR_MAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE
@@ -123,13 +123,19 @@ class PandasModel(QAbstractTableModel):
 
 # 테이블뷰. 이 안에 PandasModel이 있음.
 class CSVTableView(QTableView):
-    def __init__(self, parent, select_callback, page_size):
+    def __init__(self, parent, select_callback, page_size, lowspec_mode):
         super(CSVTableView, self).__init__(parent)
+        self.placeholder_text = ""
+
         self._parent = parent
         self.select_callback = select_callback
         self.page_size = page_size
+        self.lowspec_mode = lowspec_mode
         self.setAcceptDrops(False)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
+
+        if self.lowspec_mode:
+            return
         self.verticalHeader().setSectionsClickable(False)
         self.verticalHeader().sectionDoubleClicked.connect(
             self.parent().on_verticalheader_doubleclicked)
@@ -142,40 +148,39 @@ class CSVTableView(QTableView):
         self.verticalHeader().resizeSections(QHeaderView.ResizeToContents)
 
     def set_data(self, data):
-        self.model = PandasModel(self, data, self.page_size)
-        self.setModel(self.model)
+        self.setModel(PandasModel(self, data, self.page_size))
         self.selectionModel().currentChanged.connect(self.select_callback)
 
     def set_data_with_init_column(self, data):
         self.set_data(data)
         self.refresh_tableview_width()
         self.set_sort_indicator(0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
-        for i in range(self.model.columnCount()):
+        for i in range(self.model().columnCount()):
             self.setColumnHidden(i, False)
 
     def get_page(self):
-        return self.model._current_page
+        return self.model()._current_page
 
     def get_maxpage(self):
-        model = self.model
+        model = self.model()
         return int(len(model._data) / model._page_size) + 1
 
     def next_page(self):
-        model = self.model
+        model = self.model()
 
         if (model._current_page + 1) * model._page_size < len(model._data):
             model._current_page += 1
             self.on_page_change()
 
     def prev_page(self):
-        model = self.model
+        model = self.model()
 
         if model._current_page > 0:
             model._current_page -= 1
             self.on_page_change()
 
     def goto_page(self, page):
-        self.model._current_page = page - 1
+        self.model()._current_page = page - 1
         self.on_page_change()
 
     def set_sort_indicator(self, index, sort_mode):
@@ -188,8 +193,31 @@ class CSVTableView(QTableView):
         elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
             self.horizontalHeader().setSortIndicatorShown(False)
 
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.model() is not None and self.model().rowCount() > 0:
+            return
+        painter = QPainter(self.viewport())
+        painter.save()
+        col = QColor("#009688")  # self.palette().placeholderText().color()
+        painter.setPen(col)
+        font = QFont()
+        font.setBold(True)
+        font.setPointSize(14)
+        painter.setFont(font)
+        fm = self.fontMetrics()
+        elided_text = fm.elidedText(
+            self.placeholder_text, Qt.ElideRight, self.viewport().width()
+        )
+        painter.drawText(self.viewport().rect(),
+                         Qt.AlignCenter, elided_text)
+        painter.restore()
+
+    def set_placeholder_text(self, text):
+        self.placeholder_text = text
+
     def on_page_change(self):
-        self.model.layoutChanged.emit()
+        self.model().layoutChanged.emit()
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
 
 
@@ -202,11 +230,13 @@ class CSVTableWidget(QWidget):
 
     # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
     # page_size : 한 페이지에 보여주는 행 갯수
-    def __init__(self, select_callback, page_size):
+    def __init__(self, parent, select_callback, page_size, lowspec_mode):
         super().__init__()
         self.list_check = []
 
+        self._parent = parent
         self.page_size = page_size
+        self.lowspec_mode = lowspec_mode
 
         self.layout = QVBoxLayout()
 
@@ -223,7 +253,8 @@ class CSVTableWidget(QWidget):
         upper_button_layout.addWidget(self.column_button)
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
-        self.table_view = CSVTableView(self, select_callback, page_size)
+        self.table_view = CSVTableView(
+            self, select_callback, page_size, lowspec_mode)
         self.layout.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
@@ -259,20 +290,27 @@ class CSVTableWidget(QWidget):
 
     def set_data(self, data, mode):
         self.data = data
+        if self.lowspec_mode:
+            self.enable_ui(True, [self.column_button])
+            self.set_placeholder_text(
+                "총 " + str(len(self._parent.dm.data)) + "개의 행이 로드 되었으며,\n현재 선택된 행은 " + str(len(data)) + "개 입니다.")  # TODO hardcoded
 
-        if mode == ENUM_TABLEVIEW_INITMODE.LOAD:
-            self.table_view.set_data_with_init_column(data)
-            self.now_sort = []
-        elif mode == ENUM_TABLEVIEW_INITMODE.SORT:
-            self.table_view.set_data(data)
-        elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION:
-            self.table_view.set_data(data)
-            self.now_sort = []
+        if not self.lowspec_mode:
+            self.enable_ui(True)
+            if mode == ENUM_TABLEVIEW_INITMODE.LOAD:
+                self.table_view.set_data_with_init_column(data)
+                self.now_sort = []
+            elif mode == ENUM_TABLEVIEW_INITMODE.SORT:
+                self.table_view.set_data(data)
+            elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION:
+                self.table_view.set_data(data)
+                self.table_view.set_sort_indicator(0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
+                self.now_sort = []
 
-        self.init_page()
-        self.enable_ui(True)
+            self.init_page()
 
     # this function must be called after table_view.set_data
+
     def init_page(self):
         maxpage = self.table_view.get_maxpage()
         self.maxpage_label.setText("/ " + str(maxpage))
@@ -280,17 +318,13 @@ class CSVTableWidget(QWidget):
         self.page_label.setText("1")
         self.refresh_page()
 
-    def uncheck_button(self):
-        pass
-
     def toggle_code_to_string(self):
-        self.table_view.model.column_name_mode = 0 if self.table_view.model.column_name_mode + 1 > 2 \
-            else self.table_view.model.column_name_mode + 1
+        self.table_view.model().column_name_mode = 0 if self.table_view.model().column_name_mode + 1 > 2 \
+            else self.table_view.model().column_name_mode + 1
         self.table_view.on_page_change()
 
     def open_column_selection_dialog(self):
-        current_selected_columns = [self.data.columns[i] for i in range(
-            self.data.shape[1]) if not self.table_view.isColumnHidden(i)]
+        current_selected_columns = self._parent.showing_columns
         dialog = ColumnSelectionDialog(
             self, self.data.columns, current_selected_columns)
         if dialog.exec_():
@@ -299,10 +333,11 @@ class CSVTableWidget(QWidget):
             if len(selected_columns) == 0:
                 QMessageBox.information(self, '경고', "적어도 하나는 선택해주세요.")
                 return
-            for col in self.data.columns:
-                col_index = self.data.columns.get_loc(col)
-                self.table_view.setColumnHidden(
-                    col_index, col not in selected_columns)
+            if not self.lowspec_mode:
+                for col in self.data.columns:
+                    col_index = self.data.columns.get_loc(col)
+                    self.table_view.setColumnHidden(
+                        col_index, col not in selected_columns)
             self.on_columnselect_changed.emit(selected_columns)
 
     def goto_page(self):
@@ -328,14 +363,20 @@ class CSVTableWidget(QWidget):
     def get_page(self):
         return int(self.page_label.text())
 
-    def enable_ui(self, is_disabled):
-        targets = [self.page_label, self.prev_button, self.next_button, self.column_button,
-                   self.uncheck_button, self.string_button]
-        for t in targets:
+    def enable_ui(self, is_disabled, list_target=[]):
+        list_target = list_target or [self.page_label, self.prev_button, self.next_button, self.column_button,
+                                      self.uncheck_button, self.string_button]
+        for t in list_target:
             t.setEnabled(is_disabled)
+
+    def set_placeholder_text(self, text):
+        self.table_view.set_placeholder_text(text)
 
     def reset_check(self):
         self.list_check = []
+
+        if self.lowspec_mode:
+            return
         self.table_view.on_page_change()
 
     def on_verticalheader_doubleclicked(self, index):
@@ -348,7 +389,7 @@ class CSVTableWidget(QWidget):
 
     # sorting
     def on_horizontalheader_doubleclicked(self, index):
-        column_name = self.table_view.model.headerData(index, Qt.Horizontal)
+        column_name = self.table_view.model().headerData(index, Qt.Horizontal)
 
         sort_mode = -1
 
@@ -372,7 +413,10 @@ class CSVTableWidget(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    table_widget = CSVTableWidget(lambda: print("select_callback 콜"), 20)
+    table_widget = CSVTableWidget(
+        app, lambda: print("select_callback 콜"), 20, True)
+
+    table_widget.set_placeholder_text("")
 
     table_widget.set_data(pd.read_csv(
         "test.csv", encoding="euc-kr", sep="|", dtype=object), 0)

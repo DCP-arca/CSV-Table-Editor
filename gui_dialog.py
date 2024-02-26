@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QHBoxLayout, QVBoxLayout, QGroupBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
@@ -21,6 +21,19 @@ def create_empty(minimum_width=0, minimum_height=0):
     w.setMinimumWidth(minimum_width)
     w.setMinimumHeight(minimum_height)
     return w
+
+
+def strtobool(val):
+    if isinstance(val, bool):
+        return val
+
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 class OptionDialog(QDialog):
@@ -64,7 +77,7 @@ class OptionDialog(QDialog):
 
         hbox_font = QHBoxLayout()
         layout.addLayout(hbox_font)
-        hbox_font.addWidget(QLabel("글자 크기 : "))
+        hbox_font.addWidget(QLabel("글꼴 크기 : "))
         lineedit_font = QLineEdit(self)
         lineedit_font.setPlaceholderText("13")
         lineedit_font.setText(str(self.parent.settings.value(
@@ -84,9 +97,19 @@ class OptionDialog(QDialog):
         self.lineedit_page = lineedit_page
         hbox_page.addWidget(lineedit_page)
         layout.addWidget(QLabel("*주의 : 행의 갯수가 너무 많은 경우 렉이 발생합니다"))
-        layout.addWidget(QLabel("*행 갯수는 다음 실행부터 적용됩니다."))
 
         layout.addStretch(1)
+
+        hbox_lowspec = QHBoxLayout()
+        layout.addLayout(hbox_lowspec)
+        hbox_lowspec.addWidget(QLabel("저사양 모드 : "))
+        checkbox_lowspec = QCheckBox()
+        checkbox_lowspec.setChecked(strtobool(self.parent.settings.value(
+            SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")))
+        self.checkbox_lowspec = checkbox_lowspec
+        hbox_lowspec.addWidget(checkbox_lowspec)
+
+        layout.addWidget(QLabel("*글꼴 크기, 행 갯수, 저사양 모드는 다음 실행부터 적용됩니다."))
 
         button_close = QPushButton("저장 및 닫기")
         button_close.clicked.connect(self.on_click_close_button)
@@ -114,6 +137,8 @@ class OptionDialog(QDialog):
             SAVE_KEY_MAP.OPTION_FONTSIZE, int(self.lineedit_font.text()))
         self.parent.settings.setValue(
             SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, int(self.lineedit_page.text()))
+        self.parent.settings.setValue(
+            SAVE_KEY_MAP.OPTION_LOWSPECMODE, str(self.checkbox_lowspec.isChecked()))
         self.accept()
 
 

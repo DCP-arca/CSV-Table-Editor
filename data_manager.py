@@ -69,7 +69,8 @@ class DataManager:
                     dbf = Dbf5(src, codec='euc-kr')
                     return dbf.to_dataframe()
 
-                loading_dialog = FileIODialog("dbf 파일을 읽고 있습니다.", convert_to_df)
+                loading_dialog = FileIODialog(
+                    "dbf 파일을 읽고 있습니다.", convert_to_df)
             else:
                 loading_dialog = FileIODialog(
                     "csv 파일을 읽고 있습니다.",
@@ -130,9 +131,14 @@ class DataManager:
         self.cond_data = self.data.copy(deep=True)
         for cond in conditions:
             min_val, column_name, max_val = convert_conds_to_item(cond)
-            cond_float = self.cond_data[column_name].astype(float)
+            try:
+                cond_float = self.cond_data[column_name].astype(float)
+            except Exception as e:
+                print(e)
+                return False
             self.cond_data = self.cond_data[(
                 cond_float >= min_val) & (cond_float <= max_val)]
+        return True
 
     def sort(self, column_name, sort_mode):
         def key_func(x):
@@ -196,6 +202,7 @@ class DataManager:
                                   sep=sep,
                                   index=False,
                                   encoding="euc-kr")).exec_()
+
 
 if __name__ == "__main__":
     dbf = Dbf5("original2.dbf", codec='euc-kr')

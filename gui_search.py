@@ -4,8 +4,26 @@ from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, QSize, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QFont
 
 
+def get_data_from_qmodelindex(qmodelindex):
+    condition = qmodelindex.data()
+    column = condition.split()[2]
+    min_val = condition.split()[0]
+    max_val = condition.split()[4]
+
+    return column, min_val, max_val
+
+
+def make_condition_from_data(column, min_val, max_val):
+    return f"{min_val} < {column} < {max_val}"
+
+
+def get_condition_from_qmodelindex(qmodelindex):
+    column, min_val, max_val = get_data_from_qmodelindex(qmodelindex)
+    return make_condition_from_data(column, min_val, max_val)
+
+
 class ConditionDialog(QDialog):
-    def __init__(self, parent, column_list, data=None):
+    def __init__(self, parent, column_list, original_qmodelindex=None):
         super().__init__()
         self._parent = parent
         self.setWindowTitle("Add/Edit Condition")
@@ -14,12 +32,10 @@ class ConditionDialog(QDialog):
         column = ""
         min_val = ""
         max_val = ""
-        self.data = data
-        if data:
-            condition = data.data()
-            column = condition.split()[2]
-            min_val = condition.split()[0]
-            max_val = condition.split()[4]
+        self.original_qmodelindex = original_qmodelindex
+        if original_qmodelindex:
+            column, min_val, max_val = get_data_from_qmodelindex(
+                original_qmodelindex)
 
             if not (column in column_list):
                 column_list.append(column)
@@ -44,7 +60,7 @@ class ConditionDialog(QDialog):
         layout.addWidget(self.max_input)
         layout.addWidget(self.confirm_button)
 
-        if data:
+        if original_qmodelindex:
             self.remove_button = QPushButton("제거")
             self.remove_button.clicked.connect(self.remove_condition)
             layout.addWidget(self.remove_button)
@@ -57,12 +73,12 @@ class ConditionDialog(QDialog):
         max_val = self.max_input.text().strip()
 
         if self._check_condition_value(column, min_val, max_val):
-            item_text = f"{min_val} < {column} < {max_val}"
-            self._parent.add_condition(item_text, self.data)
+            item_text = make_condition_from_data(column, min_val, max_val)
+            self._parent.add_condition(item_text, self.original_qmodelindex)
             self.close()
 
     def remove_condition(self):
-        self._parent.remove_condition(self.data)
+        self._parent.remove_condition(self.original_qmodelindex)
         self.close()
 
     def _check_condition_value(self, column, min_val, max_val):
@@ -131,6 +147,13 @@ class CircularListModel(QAbstractListModel):
         self.endRemoveRows()
         return True
 
+    def removeLastItem(self):
+        if self.rowCount() > 0:
+            self.beginRemoveRows(self.createIndex(
+                0, 0), self.rowCount() - 1, self.rowCount() - 1)
+            del self._data[-1]
+            self.endRemoveRows()
+
     def clearAll(self):
         self.beginResetModel()
         self._data.clear()
@@ -184,7 +207,7 @@ class PlaceholderTableView(QListView):
 
 
 class SearchWidget(QWidget):
-    on_condition_changed = pyqtSignal(list)
+    on_condition_changed = pyqtSignal(list, list)  # TODO hardcoded
 
     def __init__(self):
         super().__init__()
@@ -195,9 +218,9 @@ class SearchWidget(QWidget):
         self.add_condition_button.clicked.connect(self.show_condition_dialog)
         self.layout.addWidget(self.add_condition_button)
 
-        self.model = CircularListModel()  # 초기 아이템 설정
+        self.internal_model = CircularListModel()  # 초기 아이템 설정
         list_view = PlaceholderTableView()
-        list_view.setModel(self.model)
+        list_view.setModel(self.internal_model)
         list_view.setItemDelegate(CustomDelegate())
         list_view.setIconSize(QSize(100, 100))  # 아이콘 크기 조절
         # list_view.setViewMode(QListView.IconMode)
@@ -226,7 +249,7 @@ class SearchWidget(QWidget):
         dialog.exec_()
 
     def initialize(self, columns):
-        self.model.clearAll()
+        self.internal_model.clearAll()
 
         self.set_columns(columns)
 
@@ -235,24 +258,39 @@ class SearchWidget(QWidget):
     def set_columns(self, columns):
         self.columns = columns
 
-    def add_condition(self, condition, editing_index=None):
-        if not editing_index:
-            self.model.addItem(condition)
+    # original_qmodelindex가 존재하면 edit함.
+    def add_condition(self, condition, original_qmodelindex=None):
+        original_data = []
+        if not original_qmodelindex:
+            self.internal_model.addItem(condition)
         else:
-            self.model.editItem(editing_index, condition)
+            original_data = [original_qmodelindex, get_condition_from_qmodelindex(
+                original_qmodelindex)]
+            self.internal_model.editItem(original_qmodelindex, condition)
 
-        self._func_on_condition_changed()
+        self._func_on_condition_changed(original_data)
 
     def remove_condition(self, target_index):
-        self.model.removeRow(target_index)
+        self.internal_model.removeRow(target_index)
 
         self._func_on_condition_changed()
 
     def set_info_text(self, text):
         self.list_view.set_info_text(text)
 
-    def _func_on_condition_changed(self):
-        self.on_condition_changed.emit(self.model._data.copy())
+    # 단순히 아이템을 수정한다. datamanager가 수정 실패시 gui로부터 호출됨
+    def on_edit_failed(self, original_data):
+        original_qmodelindex = original_data[0]
+        original_condition = original_data[1]
+
+        self.internal_model.editItem(original_qmodelindex, original_condition)
+
+    # add일때는 인자가 없다. edit일때만 original_data가 넘어온다.
+    # original_data안에는 0:original_qmodelindex(QModelIndex), 1:original_condition(str)가 있다.
+    # QModelIndex.isValid함수로 null인지 아닌지 체크가능.
+    def _func_on_condition_changed(self, original_data=[]):
+        self.on_condition_changed.emit(
+            self.internal_model._data.copy(), original_data)
 
 
 if __name__ == '__main__':
