@@ -113,7 +113,8 @@ class CSVTableEditor(QMainWindow):
             self,
             self.on_clicked_table,
             self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20),
-            strtobool(self.settings.value(SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")),
+            strtobool(self.settings.value(
+                SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")),
         )
         # 3개의 콜백 묶음
         table_widget.on_page_refreshed.connect(self.on_page_refreshed)
@@ -261,7 +262,9 @@ class CSVTableEditor(QMainWindow):
                 1] == ENUM_SAVE_COLUMN.SELECTED else None
             select_mode = list_value[2]
             file_path, _ = QFileDialog.getSaveFileName(
-                self, "파일을 저장할 곳을 선택해주세요", "", "CSV File (*.csv)")
+                self, "파일을 저장할 곳을 선택해주세요", "",
+                # "DBF File (*.dbf)" if self.dm.is_dbf_loaded else "CSV File (*.csv)") #TODO dbf load
+                "CSV File (*.csv)")
             if file_path:
                 # 내보내기 전, 체크 확인, 체크 모드라면 df자체를 담아서 보냄.
                 list_checked = []

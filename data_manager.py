@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from simpledbf import Dbf5
+from dbfread import DBF
 
 from PyQt5.QtWidgets import QDialog
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_ROW, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
@@ -19,6 +19,10 @@ def get_only_filename(file_path):
     return file_name_without_extension
 
 
+def get_parent_folder(file_path):
+    return os.path.dirname(file_path)
+
+
 def convert_conds_to_item(cond):
     cl = cond.split()
     min_val = float(cl[0])
@@ -34,6 +38,7 @@ class DataManager:
         self.data = None
         self.cond_data = None
         self.now_conditions = []
+        self.is_dbf_loaded = False
 
     def check_parquet_exists(self, src):
         # 파르켓 경로 생성
@@ -66,8 +71,8 @@ class DataManager:
             # 1. csv 파일 읽기
             if src.endswith(".dbf"):
                 def convert_to_df():
-                    dbf = Dbf5(src, codec='euc-kr')
-                    return dbf.to_dataframe()
+                    dbf = DBF(src, encoding='euc-kr')
+                    return pd.DataFrame(iter(dbf))
 
                 loading_dialog = FileIODialog(
                     "dbf 파일을 읽고 있습니다.", convert_to_df)
@@ -122,6 +127,7 @@ class DataManager:
         # 5. 멤버 변수 초기화
         self.cond_data = self.data.copy(deep=True)
         self.now_conditions = []
+        self.is_dbf_loaded = src.endswith(".dbf")
 
         return ERRORCODE_LOAD.SUCCESS
 
@@ -196,16 +202,18 @@ class DataManager:
         if list_target_column:
             result = result[list_target_column]
 
-        FileIODialog(
-            "csv 파일을 쓰는 중입니다.",
-            lambda: result.to_csv(dst,
-                                  sep=sep,
-                                  index=False,
-                                  encoding="euc-kr")).exec_()
-
-
-if __name__ == "__main__":
-    dbf = Dbf5("original2.dbf", codec='euc-kr')
-    print(dbf)
-    df = dbf.to_dataframe()
-    print(df)
+        if self.is_dbf_loaded:
+            # TODO write dbf
+            FileIODialog(
+                "csv 파일을 쓰는 중입니다.",
+                lambda: result.to_csv(dst,
+                                      sep=sep,
+                                      index=False,
+                                      encoding="euc-kr")).exec_()
+        else:
+            FileIODialog(
+                "csv 파일을 쓰는 중입니다.",
+                lambda: result.to_csv(dst,
+                                      sep=sep,
+                                      index=False,
+                                      encoding="euc-kr")).exec_()
