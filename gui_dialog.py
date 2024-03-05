@@ -172,18 +172,18 @@ class LoadOptionDialog(QDialog):
             self.radio2_loadmode.setEnabled(False)
             self.radio3_loadmode.setEnabled(False)
 
-        # 라디오그룹 - 열 분리자 선택
-        groupBox_seperator = QGroupBox("열 분리자 선택")
-        layout.addWidget(groupBox_seperator)
+        # # 라디오그룹 - 열 분리자 선택
+        # groupBox_seperator = QGroupBox("열 분리자 선택")
+        # layout.addWidget(groupBox_seperator)
 
-        groupBoxLayout_seperator = QVBoxLayout()
-        groupBox_seperator.setLayout(groupBoxLayout_seperator)
+        # groupBoxLayout_seperator = QVBoxLayout()
+        # groupBox_seperator.setLayout(groupBoxLayout_seperator)
 
-        self.radio1_seperator = QRadioButton("| (버티컬바)")
-        self.radio1_seperator.setChecked(True)
-        self.radio2_seperator = QRadioButton(", (쉼표)")
-        groupBoxLayout_seperator.addWidget(self.radio1_seperator)
-        groupBoxLayout_seperator.addWidget(self.radio2_seperator)
+        # self.radio1_seperator = QRadioButton("| (버티컬바)")
+        # self.radio1_seperator.setChecked(True)
+        # self.radio2_seperator = QRadioButton(", (쉼표)")
+        # groupBoxLayout_seperator.addWidget(self.radio1_seperator)
+        # groupBoxLayout_seperator.addWidget(self.radio2_seperator)
 
         layout.addWidget(create_empty(minimum_height=1))
 
@@ -203,10 +203,10 @@ class LoadOptionDialog(QDialog):
         elif self.radio3_loadmode.isChecked():
             self.selected_radiovalue = ENUM_LOAD_MODE.ADDROW
 
-        if self.radio1_seperator.isChecked():
-            self.selected_seperator = ENUM_SEPERATOR.VERTICAL_BAR
-        elif self.radio2_seperator.isChecked():
-            self.selected_seperator = ENUM_SEPERATOR.COMMA
+        # if self.radio1_seperator.isChecked():
+        #     self.selected_seperator = ENUM_SEPERATOR.VERTICAL_BAR
+        # elif self.radio2_seperator.isChecked():
+        #     self.selected_seperator = ENUM_SEPERATOR.COMMA
 
         super().accept()
 

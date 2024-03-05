@@ -167,27 +167,27 @@ class CSVTableEditor(QMainWindow):
 
     def start_load(self, src=""):
         load_mode = 0
-        sep_mode = 0
+        # sep_mode = 0
 
         is_already_loaded = (self.dm.data is not None)
         dialog = LoadOptionDialog(is_already_loaded)
         if dialog.exec_() == QDialog.Accepted:
             load_mode = dialog.selected_radiovalue
-            sep_mode = dialog.selected_seperator
+            # sep_mode = dialog.selected_seperator
         else:
             return
 
         if src:
-            self.load(src, load_mode, sep_mode)
+            self.load(src, load_mode)
         else:
-            self.show_load_dialog(load_mode, sep_mode)
+            self.show_load_dialog(load_mode)
 
-    def load(self, src, load_mode, sep_mode):
+    def load(self, src, load_mode):
         if not self.dm.check_parquet_exists(src):
             QMessageBox.information(
                 self, '경고', "처음 불러오는 파일입니다.\n.parquet 파일을 생성합니다.\n이 과정은 오래 걸릴 수 있습니다.")
 
-        error_code = self.dm.load_data(src, load_mode, sep_mode)
+        error_code = self.dm.load_data(src, load_mode)
 
         if error_code == ERRORCODE_LOAD.SUCCESS:
             self.showing_columns = self.dm.cond_data.columns.to_list()
@@ -212,6 +212,8 @@ class CSVTableEditor(QMainWindow):
                 error_message = "PARQUET파일을 불러오는데 실패했습니다.\n이 에러가 반복되면 .parquet파일을 제거해주세요."
             elif error_code == ERRORCODE_LOAD.NOT_FOUND_PNU:
                 error_message = "열 중에 'PNU'가 포함되지 않은 파일이 있습니다."
+            elif error_code == ERRORCODE_LOAD.NOT_FOUND_SEP:
+                error_message = "CSV 파일 내부에 |나 ,가 없습니다.\n잘못된 파일인 것 같습니다."
 
             QMessageBox.information(self, '불러오기 실패', error_message)
 
@@ -285,7 +287,7 @@ class CSVTableEditor(QMainWindow):
                                select_mode=select_mode,
                                list_checked=list_checked)
 
-    def show_load_dialog(self, load_mode, sep_mode):
+    def show_load_dialog(self, load_mode):
         select_dialog = QFileDialog()
         select_dialog.setFileMode(QFileDialog.ExistingFile)
         fname = select_dialog.getOpenFileName(   # 여기서 dialog가 꺼질때까지 스턱되어있음. dialog가 성공적으로 파일을 고르면, fname으로 고른 파일의 경로가 들어온다.
@@ -293,7 +295,7 @@ class CSVTableEditor(QMainWindow):
 
         if fname[0]:  # 우리는 하나만 고르는 모드이므로, 첫번째 값이 그것임. dialog가 취소하면 fname == []
             fname = fname[0]
-            self.load(fname, load_mode, sep_mode)
+            self.load(fname, load_mode)
 
     def show_option_dialog(self):
         OptionDialog(self).exec_()

@@ -63,9 +63,9 @@ class DataManager:
         return True
 
     # 일단 .parquet파일이 존재하는지 체크, 없다면, csv 파일을 읽고 .parquet을 생성후 그것을 불러옴. 이후 load_mode를 적용함.
-    def load_data(self, src, load_mode, sep_mode):
+    def load_data(self, src, load_mode):
         parquet_name = remove_extension(src) + ".parquet"
-        sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
+        # sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
 
         if not self.check_parquet_exists(src):
             # 1. csv 파일 읽기
@@ -76,10 +76,22 @@ class DataManager:
 
                 loading_dialog = FileIODialog(
                     "dbf 파일을 읽고 있습니다.", convert_to_df)
-            else:
+            else:  # TODO: Hard Coded
+                sep = ","
                 loading_dialog = FileIODialog(
                     "csv 파일을 읽고 있습니다.",
                     lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
+                if loading_dialog.exec_() != QDialog.Accepted:
+                    return ERRORCODE_LOAD.CANCEL
+                if loading_dialog.result.empty:
+                    sep = "|"
+                    loading_dialog = FileIODialog(
+                        "csv 파일을 읽고 있습니다.",
+                        lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
+                    if loading_dialog.exec_() != QDialog.Accepted:
+                        return ERRORCODE_LOAD.CANCEL
+                    if loading_dialog.result.empty:
+                        return ERRORCODE_LOAD.NOT_FOUND_SEP
             if loading_dialog.exec_() != QDialog.Accepted:
                 return ERRORCODE_LOAD.CANCEL
 
