@@ -144,8 +144,6 @@ class DataManager:
         return ERRORCODE_LOAD.SUCCESS
 
     def change_condition(self, conditions):
-        self.now_conditions = conditions
-
         self.cond_data = self.data.copy(deep=True)
         for cond in conditions:
             min_val, column_name, max_val = convert_conds_to_item(cond)
@@ -156,6 +154,8 @@ class DataManager:
                 return False
             self.cond_data = self.cond_data[(
                 cond_float >= min_val) & (cond_float <= max_val)]
+
+        self.now_conditions = conditions
         return True
 
     def sort(self, column_name, sort_mode):

@@ -331,7 +331,7 @@ class CSVTableEditor(QMainWindow):
         if not is_success:
             QMessageBox.information(self, '경고', "조건식이 숫자가 아니거나 잘못되었습니다.")
 
-            self.search_widget.on_edit_failed(original_data)
+            self.search_widget.on_edit_failed(self.dm.now_conditions)
             return
 
         self.table_widget.set_data(

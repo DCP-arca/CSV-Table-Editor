@@ -238,6 +238,11 @@ class SearchWidget(QWidget):
         self.list_view = list_view
         self.layout.addWidget(list_view)
 
+        self.enter_condition_button = QPushButton("반영")
+        self.enter_condition_button.setEnabled(False)
+        self.enter_condition_button.clicked.connect(self.on_click_entercondition)
+        self.layout.addWidget(self.enter_condition_button)
+
         self.setLayout(self.layout)
 
     def show_condition_dialog(self):
@@ -254,36 +259,43 @@ class SearchWidget(QWidget):
         self.set_columns(columns)
 
         self.add_condition_button.setEnabled(True)
+        self.enter_condition_button.setEnabled(True)
+        self.enter_condition_button.setStyleSheet("QPushButton{color: #009688;}")
 
     def set_columns(self, columns):
         self.columns = columns
 
     # original_qmodelindex가 존재하면 edit함.
     def add_condition(self, condition, original_qmodelindex=None):
-        original_data = []
+        # original_data = []
         if not original_qmodelindex:
             self.internal_model.addItem(condition)
         else:
-            original_data = [original_qmodelindex, get_condition_from_qmodelindex(
-                original_qmodelindex)]
+            # original_data = [original_qmodelindex, get_condition_from_qmodelindex(
+            #     original_qmodelindex)]
             self.internal_model.editItem(original_qmodelindex, condition)
+        self.enter_condition_button.setStyleSheet("QPushButton{color: red;}")
 
-        self._func_on_condition_changed(original_data)
+        # self._func_on_condition_changed(original_data)
 
     def remove_condition(self, target_index):
         self.internal_model.removeRow(target_index)
 
-        self._func_on_condition_changed()
+        # self._func_on_condition_changed()
 
     def set_info_text(self, text):
         self.list_view.set_info_text(text)
 
     # 단순히 아이템을 수정한다. datamanager가 수정 실패시 gui로부터 호출됨
-    def on_edit_failed(self, original_data):
-        original_qmodelindex = original_data[0]
-        original_condition = original_data[1]
+    def on_edit_failed(self, original_cond):
+        self.internal_model.clearAll()
+        for cond in original_cond:
+            self.add_condition(cond)
 
-        self.internal_model.editItem(original_qmodelindex, original_condition)
+    def on_click_entercondition(self):
+        self.on_condition_changed.emit(
+            self.internal_model._data.copy(), [])
+        self.enter_condition_button.setStyleSheet("QPushButton{color: #009688;}")
 
     # add일때는 인자가 없다. edit일때만 original_data가 넘어온다.
     # original_data안에는 0:original_qmodelindex(QModelIndex), 1:original_condition(str)가 있다.

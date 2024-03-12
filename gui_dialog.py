@@ -336,6 +336,7 @@ class ImageViewerDialog(QDialog):
                     self.width(), self.height(),
                     aspectRatioMode=Qt.KeepAspectRatio,
                     transformMode=Qt.SmoothTransformation))
+                self.setMinimumWidth(100)
 
             def eventFilter(self, obj, event):
                 if event.type() == QEvent.Resize:
