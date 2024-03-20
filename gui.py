@@ -36,6 +36,17 @@ def strtobool(val):
         raise ValueError("invalid truth value %r" % (val,))
 
 
+def find_pnu_from_df(df):
+    search_table = ['PNU', 'pnu']
+
+    pnu = ''
+    for tag in search_table:
+        if tag in df:
+            pnu = df[tag]
+
+    return pnu
+
+
 class CSVTableEditor(QMainWindow):
     def __init__(self, app):
         super().__init__()
@@ -313,7 +324,7 @@ class CSVTableEditor(QMainWindow):
         # 2. mapinfo table 업데이트
         # 2.1. apikey, pnu 구함, 못구하면 둘다 공백이 나옴
         apikey = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
-        pnu = target_df["PNU"] if "PNU" in target_df else ""
+        pnu = find_pnu_from_df(target_df)
 
         # 2.2. mapinfolist 구함
         mapinfolist = ["ERROR", "ERROR", "ERROR", "ERROR"]
