@@ -1,11 +1,13 @@
-import pandas as pd
 import os
+import re
+
+import pandas as pd
 from dbfread import DBF
 
 from PyQt5.QtWidgets import QDialog
+
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_ROW, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
 from gui_dialog import FileIODialog
-
 from gui_search import FilterStruct
 
 
@@ -14,15 +16,20 @@ def remove_extension(file_path):
     return base
 
 
-def get_only_filename(file_path):
-    file_name_with_extension = os.path.basename(file_path)
-    file_name_without_extension = os.path.splitext(file_name_with_extension)[0]
-
-    return file_name_without_extension
-
-
 def get_parent_folder(file_path):
     return os.path.dirname(file_path)
+
+
+def get_first_line_from_file(filename):
+    with open(filename, 'r') as file:
+        first_line = next(file)
+    return first_line
+
+
+def remove_special_characters(text):
+    # 정규 표현식을 사용하여 특수문자를 제거
+    clean_text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return clean_text
 
 
 class DataManager:
@@ -42,9 +49,8 @@ class DataManager:
             return False
 
         # 이 파르켓을 만들때 생성했던 원본 사이즈 불러오기
-        filename = get_only_filename(parquet_src)
         saved_file_size = self.parent.settings.value(
-            SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + filename, -1)
+            SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + remove_special_characters(src), -1)
         if saved_file_size == -1:
             return False
 
@@ -61,7 +67,7 @@ class DataManager:
         # sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
 
         if not self.check_parquet_exists(src):
-            # 1. csv 파일 읽기
+            # 1. 파일 읽기 준비
             if src.endswith(".dbf"):
                 def convert_to_df():
                     dbf = DBF(src, encoding='euc-kr')
@@ -69,19 +75,24 @@ class DataManager:
 
                 loading_dialog = FileIODialog(
                     "dbf 파일을 읽고 있습니다.", convert_to_df)
-                if loading_dialog.exec_() != QDialog.Accepted:
-                    return ERRORCODE_LOAD.CANCEL
-            else:  # TODO: Hard Coded
+            else:
+                target_sep = ''
                 for sep in [',', '|']:
-                    loading_dialog = FileIODialog(
-                        "csv 파일을 읽고 있습니다.",
-                        lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
-                    if loading_dialog.exec_() != QDialog.Accepted:
-                        return ERRORCODE_LOAD.CANCEL
-                    if not loading_dialog.result.empty:
+                    first_line = get_first_line_from_file(src)
+                    if sep in first_line:
+                        target_sep = sep
                         break
 
-            # 1. csv 파일 읽기 성공체크
+                if not target_sep:
+                    return ERRORCODE_LOAD.NOT_FOUND_SEP
+
+                loading_dialog = FileIODialog(
+                    "csv 파일을 읽고 있습니다.",
+                    lambda: pd.read_csv(src, encoding="euc-kr", sep=target_sep, dtype=object))
+
+            # 1. 파일 읽기 실행 및 성공체크
+            if loading_dialog.exec_() != QDialog.Accepted:
+                return ERRORCODE_LOAD.CANCEL
             df = loading_dialog.result
             if df.empty:
                 return ERRORCODE_LOAD.CSV_FAIL
@@ -95,9 +106,8 @@ class DataManager:
 
             # 2.5. 원본 파일 사이즈 기록
             file_size = os.path.getsize(src)
-            filename = get_only_filename(src)
             self.parent.settings.setValue(
-                SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + filename, file_size)
+                SAVE_KEY_MAP.PARQUET_FILE_ORIGINAL_SIZE + remove_special_characters(src), file_size)
 
         # 1 or 3. .parquet 파일 읽기
         loading_dialog = FileIODialog(
