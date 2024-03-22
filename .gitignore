@@ -1,6 +1,7 @@
 *.parquet
 *.csv
 *.dbf
+test_datas/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
