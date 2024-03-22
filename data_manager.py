@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import QDialog
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, ENUM_SAVE_ROW, ENUM_TABLEVIEW_SORTMODE, ERRORCODE_LOAD
 from gui_dialog import FileIODialog
 
+from gui_search import FilterStruct
+
 
 def remove_extension(file_path):
     base = os.path.splitext(file_path)[0]
@@ -21,15 +23,6 @@ def get_only_filename(file_path):
 
 def get_parent_folder(file_path):
     return os.path.dirname(file_path)
-
-
-def convert_conds_to_item(cond):
-    cl = cond.split()
-    min_val = float(cl[0])
-    column_name = cl[2]
-    max_val = float(cl[4])
-
-    return min_val, column_name, max_val
 
 
 class DataManager:
@@ -139,15 +132,21 @@ class DataManager:
     def change_condition(self, conditions):
         self.cond_data = self.data.copy(deep=True)
         for cond in conditions:
-            min_val, column_name, max_val = convert_conds_to_item(cond)
-            try:
-                cond_float = self.cond_data[column_name].astype(float)
-            except Exception as e:
-                print(e)
-                return False
-            self.cond_data = self.cond_data[(
-                cond_float >= min_val) & (cond_float <= max_val)]
+            fs = FilterStruct(datastr=cond)
 
+            if fs.is_minmax_mode:
+                try:
+                    cond_float = self.cond_data[fs.column].astype(float)
+                except Exception as e:
+                    print(e)
+                    return False
+                self.cond_data = self.cond_data[(
+                    cond_float >= fs.min_val) & (cond_float <= fs.max_val)]
+            else:
+                self.cond_data = self.cond_data[self.cond_data[fs.column].str.contains(
+                    fs.str_val)]
+
+        # now_conditions는 성공시에만 저장합니다.
         self.now_conditions = conditions
         return True
 
@@ -168,6 +167,21 @@ class DataManager:
             self.data = self.data.sort_index()
             self.cond_data = self.cond_data.sort_index()
 
+    def _create_series_by_condition(self, target_df):
+        sel = pd.Series([True] * len(self.data))
+
+        for cond in self.now_conditions:
+            fs = FilterStruct(datastr=cond)
+
+            if fs.is_minmax_mode:
+                result_float = target_df[fs.column].astype(float)
+                sel &= (result_float >= fs.min_val) & (
+                    result_float <= fs.max_val)
+            else:
+                sel &= target_df[fs.column].str.contains(
+                    fs.str_val)
+        return sel
+
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     def export(self, dst, sep_mode, list_target_column, select_mode, list_checked):
         # option 1. 분리자 설정
@@ -178,19 +192,11 @@ class DataManager:
             result = self.data.copy(deep=True)
         elif select_mode == ENUM_SAVE_ROW.FILTERED:
             result = self.data.copy(deep=True)
-            sel = pd.Series([True] * len(self.data))
-            for cond in self.now_conditions:
-                min_val, column_name, max_val = convert_conds_to_item(cond)
-                result_float = result[column_name].astype(float)
-                sel &= (result_float >= min_val) & (result_float <= max_val)
+            sel = self._create_series_by_condition(result)
             result = result[sel]
         elif select_mode == ENUM_SAVE_ROW.FILTERED_SELECT:
             result = self.data.copy(deep=True)
-            sel = pd.Series([True] * len(self.data))
-            for cond in self.now_conditions:
-                min_val, column_name, max_val = convert_conds_to_item(cond)
-                result_float = result[column_name].astype(float)
-                sel &= (result_float >= min_val) & (result_float <= max_val)
+            sel = self._create_series_by_condition(result)
             result["select"] = pd.Series(sel).astype(int)
         elif select_mode == ENUM_SAVE_ROW.CHECKED:
             list_checked_df = []

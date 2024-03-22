@@ -337,7 +337,7 @@ class CSVTableEditor(QMainWindow):
         self.mapinfo_table.set_mapinfo(mapinfolist, epsglist)
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
-    def on_condition_changed(self, conditions, original_data):
+    def on_condition_changed(self, conditions):
         is_success = self.dm.change_condition(conditions)
         if not is_success:
             QMessageBox.information(self, '경고', "조건식이 숫자가 아니거나 잘못되었습니다.")

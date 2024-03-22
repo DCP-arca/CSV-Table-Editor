@@ -10,6 +10,7 @@ class FilterStruct():
                  min_val="",
                  max_val="",
                  str_val="",
+                 datastr=None,
                  qmodelindex=None):
 
         self.column = column
@@ -17,8 +18,12 @@ class FilterStruct():
         self.max_val = max_val
         self.str_val = str_val
 
+        condition = ''
         if qmodelindex:
             condition = qmodelindex.data()
+        elif datastr:
+            condition = datastr
+        if condition:
             if '∈' in condition:
                 self.column = condition.split()[2]
                 self.str_val = condition.split()[0]
@@ -85,13 +90,16 @@ class ConditionDialog(QDialog):
         self.confirm_button = QPushButton("확인")
         self.confirm_button.clicked.connect(self.confirm_condition)
 
+        empty_frame = QFrame()
+        empty_frame.setStyleSheet("QFrame { border: none; }")
+
         layout.addWidget(self.column_label)
         layout.addWidget(self.column_combobox)
         layout.addWidget(self.mode_label)
         layout.addWidget(self.mode_combobox)
         layout.addWidget(self.frame_minmax)
         layout.addWidget(self.frame_str)
-        layout.addWidget(QFrame(), stretch=999)
+        layout.addWidget(empty_frame, stretch=999)
         layout.addWidget(self.confirm_button)
 
         if original_qmodelindex:
@@ -292,7 +300,7 @@ class PlaceholderTableView(QListView):
 
 
 class SearchWidget(QWidget):
-    on_condition_changed = pyqtSignal(list, list)  # TODO hardcoded
+    on_condition_changed = pyqtSignal(list)  # TODO hardcoded
 
     def __init__(self):
         super().__init__()
@@ -354,26 +362,23 @@ class SearchWidget(QWidget):
 
     # original_qmodelindex가 존재하면 edit함.
     def add_condition(self, condition, original_qmodelindex=None):
-        # original_data = []
         if not original_qmodelindex:
             self.internal_model.addItem(condition)
         else:
-            # original_data = [original_qmodelindex, get_condition_from_qmodelindex(
-            #     original_qmodelindex)]
             self.internal_model.editItem(original_qmodelindex, condition)
         self.enter_condition_button.setStyleSheet("QPushButton{color: red;}")
-
-        # self._func_on_condition_changed(original_data)
 
     def remove_condition(self, target_index):
         self.internal_model.removeRow(target_index)
 
-        # self._func_on_condition_changed()
-
     def set_info_text(self, text):
         self.list_view.set_info_text(text)
 
-    # 단순히 아이템을 수정한다. datamanager가 수정 실패시 gui로부터 호출됨
+    # on_click_entercondition으로부터 시작해, gui에서 실행된다.
+    # 반영 버튼을 눌렀을때 gui가 dm에게 전달해 condition을 변경하려고 시도한다.
+    # 시도가 실패한 경우, dm이 원래 가지고 있던 조건들을 original_cond로 돌려준다.
+    # 그럼 on_edit_failed는 지금까지 설정되어있던 조건들을 다 날리고
+    # dm에 들어가 있던 조건을 새로 설정한다.
     def on_edit_failed(self, original_cond):
         self.internal_model.clearAll()
         for cond in original_cond:
@@ -381,16 +386,9 @@ class SearchWidget(QWidget):
 
     def on_click_entercondition(self):
         self.on_condition_changed.emit(
-            self.internal_model._data.copy(), [])
+            self.internal_model._data.copy())
         self.enter_condition_button.setStyleSheet(
             "QPushButton{color: #009688;}")
-
-    # add일때는 인자가 없다. edit일때만 original_data가 넘어온다.
-    # original_data안에는 0:original_qmodelindex(QModelIndex), 1:original_condition(str)가 있다.
-    # QModelIndex.isValid함수로 null인지 아닌지 체크가능.
-    def _func_on_condition_changed(self, original_data=[]):
-        self.on_condition_changed.emit(
-            self.internal_model._data.copy(), original_data)
 
 
 if __name__ == '__main__':

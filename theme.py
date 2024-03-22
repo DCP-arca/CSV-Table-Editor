@@ -120,3 +120,5 @@ QFrame {
   height: 36px;
 }""")
     app.setStyleSheet(ss)
+
+    # print(ss)
