@@ -76,24 +76,17 @@ class DataManager:
 
                 loading_dialog = FileIODialog(
                     "dbf 파일을 읽고 있습니다.", convert_to_df)
-            else:  # TODO: Hard Coded
-                sep = ","
-                loading_dialog = FileIODialog(
-                    "csv 파일을 읽고 있습니다.",
-                    lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
                 if loading_dialog.exec_() != QDialog.Accepted:
                     return ERRORCODE_LOAD.CANCEL
-                if loading_dialog.result.empty:
-                    sep = "|"
+            else:  # TODO: Hard Coded
+                for sep in [',', '|']:
                     loading_dialog = FileIODialog(
                         "csv 파일을 읽고 있습니다.",
                         lambda: pd.read_csv(src, encoding="euc-kr", sep=sep, dtype=object))
                     if loading_dialog.exec_() != QDialog.Accepted:
                         return ERRORCODE_LOAD.CANCEL
-                    if loading_dialog.result.empty:
-                        return ERRORCODE_LOAD.NOT_FOUND_SEP
-            if loading_dialog.exec_() != QDialog.Accepted:
-                return ERRORCODE_LOAD.CANCEL
+                    if not loading_dialog.result.empty:
+                        break
 
             # 1. csv 파일 읽기 성공체크
             df = loading_dialog.result

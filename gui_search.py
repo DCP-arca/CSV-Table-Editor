@@ -1,63 +1,97 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QMessageBox, QStyledItemDelegate
+from PyQt5.QtWidgets import QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QPushButton, QDialog, QLabel, QLineEdit, QAbstractItemView, QHBoxLayout, QListView, QMessageBox, QStyledItemDelegate
 from PyQt5.QtCore import Qt, QAbstractListModel, QModelIndex, QSize, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QFont
 
 
-def get_data_from_qmodelindex(qmodelindex):
-    condition = qmodelindex.data()
-    column = condition.split()[2]
-    min_val = condition.split()[0]
-    max_val = condition.split()[4]
+class FilterStruct():
+    def __init__(self,
+                 column="",
+                 min_val="",
+                 max_val="",
+                 str_val="",
+                 qmodelindex=None):
 
-    return column, min_val, max_val
+        self.column = column
+        self.min_val = min_val
+        self.max_val = max_val
+        self.str_val = str_val
 
+        if qmodelindex:
+            condition = qmodelindex.data()
+            if '∈' in condition:
+                self.column = condition.split()[2]
+                self.str_val = condition.split()[0]
+            else:
+                self.column = condition.split()[2]
+                self.min_val = condition.split()[0]
+                self.max_val = condition.split()[4]
 
-def make_condition_from_data(column, min_val, max_val):
-    return f"{min_val} < {column} < {max_val}"
+        if self.min_val:
+            self.is_minmax_mode = True
+        elif self.str_val:
+            self.is_minmax_mode = False
+        else:
+            assert False, "Erorr"
 
-
-def get_condition_from_qmodelindex(qmodelindex):
-    column, min_val, max_val = get_data_from_qmodelindex(qmodelindex)
-    return make_condition_from_data(column, min_val, max_val)
+    def to_string(self):
+        if self.min_val:
+            return f"{self.min_val} < {self.column} < {self.max_val}"
+        else:
+            return f"{self.str_val} ∈ {self.column}"
 
 
 class ConditionDialog(QDialog):
     def __init__(self, parent, column_list, original_qmodelindex=None):
         super().__init__()
+        self.is_minmax_mode = True
+
         self._parent = parent
-        self.setWindowTitle("Add/Edit Condition")
-        layout = QVBoxLayout()
-
-        column = ""
-        min_val = ""
-        max_val = ""
         self.original_qmodelindex = original_qmodelindex
-        if original_qmodelindex:
-            column, min_val, max_val = get_data_from_qmodelindex(
-                original_qmodelindex)
-
-            if not (column in column_list):
-                column_list.append(column)
+        self.setWindowTitle("조건 추가")
+        layout = QVBoxLayout()
 
         self.column_label = QLabel("열(라벨):")
         self.column_combobox = QComboBox()
         self.column_combobox.addItems(column_list)
-        self.column_combobox.setCurrentText(column)
+
+        self.mode_label = QLabel("비교 모드:")
+        self.mode_combobox = QComboBox()
+        self.mode_combobox.addItems(['크기 비교', '문자 포함'])
+        self.mode_combobox.currentIndexChanged.connect(
+            self.on_moderadio_changed)
+
+        self.frame_minmax = QFrame()
+        layout_minmax = QVBoxLayout()
+        self.frame_minmax.setLayout(layout_minmax)
         self.min_label = QLabel("이상:")
-        self.min_input = QLineEdit(min_val or "")
+        self.min_input = QLineEdit()
         self.max_label = QLabel("이하:")
-        self.max_input = QLineEdit(max_val or "")
+        self.max_input = QLineEdit()
+        layout_minmax.addWidget(self.min_label)
+        layout_minmax.addWidget(self.min_input)
+        layout_minmax.addWidget(self.max_label)
+        layout_minmax.addWidget(self.max_input)
+
+        self.frame_str = QFrame()
+        layout_str = QVBoxLayout()
+        self.frame_str.setLayout(layout_str)
+        self.str_label = QLabel("다음 텍스트를 포함:")
+        self.str_input = QLineEdit()
+        layout_str.addWidget(self.str_label)
+        layout_str.addWidget(self.str_input)
+        self.frame_str.setVisible(False)
 
         self.confirm_button = QPushButton("확인")
         self.confirm_button.clicked.connect(self.confirm_condition)
 
         layout.addWidget(self.column_label)
         layout.addWidget(self.column_combobox)
-        layout.addWidget(self.min_label)
-        layout.addWidget(self.min_input)
-        layout.addWidget(self.max_label)
-        layout.addWidget(self.max_input)
+        layout.addWidget(self.mode_label)
+        layout.addWidget(self.mode_combobox)
+        layout.addWidget(self.frame_minmax)
+        layout.addWidget(self.frame_str)
+        layout.addWidget(QFrame(), stretch=999)
         layout.addWidget(self.confirm_button)
 
         if original_qmodelindex:
@@ -65,23 +99,74 @@ class ConditionDialog(QDialog):
             self.remove_button.clicked.connect(self.remove_condition)
             layout.addWidget(self.remove_button)
 
+            fs = FilterStruct(qmodelindex=original_qmodelindex)
+            column = fs.column
+
+            if not (column in column_list):
+                column_list.append(column)
+            self.column_combobox.setCurrentText(column)
+
+            self.change_searchmode(fs.is_minmax_mode)
+            self.mode_combobox.setCurrentIndex(0 if fs.is_minmax_mode else 1)
+            if fs.is_minmax_mode:
+                self.min_input.setText(fs.min_val or "")
+                self.max_input.setText(fs.max_val or "")
+            else:
+                self.str_input.setText(fs.str_val or "")
+
         self.setLayout(layout)
+
+    def on_moderadio_changed(self, v):
+        self.change_searchmode((v == 0))
+
+    def change_searchmode(self, is_minmax_mode):
+        self.is_minmax_mode = is_minmax_mode
+
+        self.frame_minmax.setVisible(is_minmax_mode)
+        self.frame_str.setVisible(not is_minmax_mode)
 
     def confirm_condition(self):
         column = self.column_combobox.currentText()
-        min_val = self.min_input.text().strip()
-        max_val = self.max_input.text().strip()
 
-        if self._check_condition_value(column, min_val, max_val):
-            item_text = make_condition_from_data(column, min_val, max_val)
-            self._parent.add_condition(item_text, self.original_qmodelindex)
-            self.close()
+        if self.is_minmax_mode:
+            min_val = self.min_input.text().strip()
+            max_val = self.max_input.text().strip()
+
+            if self._check_condition_value_minmax(column, min_val, max_val):
+                item_text = FilterStruct(
+                    column=column, min_val=min_val, max_val=max_val).to_string()
+                self._parent.add_condition(
+                    item_text, self.original_qmodelindex)
+                self.close()
+        else:
+            str_val = self.str_input.text().strip()
+
+            if self._check_condition_value_str(column, str_val):
+                item_text = FilterStruct(
+                    column=column, str_val=str_val).to_string()
+                self._parent.add_condition(
+                    item_text, self.original_qmodelindex)
+                self.close()
 
     def remove_condition(self):
         self._parent.remove_condition(self.original_qmodelindex)
         self.close()
 
-    def _check_condition_value(self, column, min_val, max_val):
+    def _check_condition_value_str(self, column, str_val):
+        if not column:
+            QMessageBox.warning(self, "경고", "열(라벨)의 이름을 입력해주세요.")
+            return False
+        if not str_val:
+            QMessageBox.warning(self, "경고", "검색할 값을 넣어주세요.")
+            return False
+        if len(str_val) < 1 or len(str_val) > 120:
+            QMessageBox.warning(
+                self, "경고", "검색할 문자는 1자 이상, 120자 이하여야합니다.")
+            return False
+
+        return True
+
+    def _check_condition_value_minmax(self, column, min_val, max_val):
         if not column:
             QMessageBox.warning(self, "경고", "열(라벨)의 이름을 입력해주세요.")
             return False
@@ -240,7 +325,8 @@ class SearchWidget(QWidget):
 
         self.enter_condition_button = QPushButton("반영")
         self.enter_condition_button.setEnabled(False)
-        self.enter_condition_button.clicked.connect(self.on_click_entercondition)
+        self.enter_condition_button.clicked.connect(
+            self.on_click_entercondition)
         self.layout.addWidget(self.enter_condition_button)
 
         self.setLayout(self.layout)
@@ -260,7 +346,8 @@ class SearchWidget(QWidget):
 
         self.add_condition_button.setEnabled(True)
         self.enter_condition_button.setEnabled(True)
-        self.enter_condition_button.setStyleSheet("QPushButton{color: #009688;}")
+        self.enter_condition_button.setStyleSheet(
+            "QPushButton{color: #009688;}")
 
     def set_columns(self, columns):
         self.columns = columns
@@ -295,7 +382,8 @@ class SearchWidget(QWidget):
     def on_click_entercondition(self):
         self.on_condition_changed.emit(
             self.internal_model._data.copy(), [])
-        self.enter_condition_button.setStyleSheet("QPushButton{color: #009688;}")
+        self.enter_condition_button.setStyleSheet(
+            "QPushButton{color: #009688;}")
 
     # add일때는 인자가 없다. edit일때만 original_data가 넘어온다.
     # original_data안에는 0:original_qmodelindex(QModelIndex), 1:original_condition(str)가 있다.
@@ -316,4 +404,5 @@ if __name__ == '__main__':
     # search_widget.add_condition("1 < col < 2")
     search_widget.resize(800, 50)
     search_widget.show()
+    search_widget.show_condition_dialog()
     sys.exit(app.exec_())
