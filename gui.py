@@ -44,6 +44,12 @@ def find_pnu_from_df(df):
         if tag in df:
             pnu = df[tag]
 
+    if not pnu:
+        for x in df:
+            if len(x) == 19 and x.isdigit():
+                pnu = x
+                break
+
     return pnu
 
 
