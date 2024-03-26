@@ -46,7 +46,7 @@ def find_pnu_from_df(df):
 
     if not pnu:
         for x in df:
-            if len(x) == 19 and x.isdigit():
+            if x and len(x) == 19 and x.isdigit():
                 pnu = x
                 break
 
