@@ -151,7 +151,7 @@ class DataManager:
                     print(e)
                     return False
                 self.cond_data = self.cond_data[(
-                    cond_float >= fs.min_val) & (cond_float <= fs.max_val)]
+                    cond_float >= float(fs.min_val)) & (cond_float <= float(fs.max_val))]
             else:
                 self.cond_data = self.cond_data[self.cond_data[fs.column].str.contains(
                     fs.str_val)]
@@ -185,8 +185,8 @@ class DataManager:
 
             if fs.is_minmax_mode:
                 result_float = target_df[fs.column].astype(float)
-                sel &= (result_float >= fs.min_val) & (
-                    result_float <= fs.max_val)
+                sel &= (result_float >= float(fs.min_val)) & (
+                    result_float <= float(fs.max_val))
             else:
                 sel &= target_df[fs.column].str.contains(
                     fs.str_val)
