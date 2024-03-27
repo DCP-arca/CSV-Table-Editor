@@ -22,7 +22,11 @@ def get_parent_folder(file_path):
 
 def get_first_line_from_file(filename):
     with open(filename, 'r') as file:
-        first_line = next(file)
+        try:
+            first_line = next(file)
+        except Exception as e:
+            print(e)
+            return ""
     return first_line
 
 
@@ -79,6 +83,8 @@ class DataManager:
                 target_sep = ''
                 for sep in [',', '|']:
                     first_line = get_first_line_from_file(src)
+                    if not first_line:
+                        return ERRORCODE_LOAD.CSV_FAIL
                     if sep in first_line:
                         target_sep = sep
                         break
