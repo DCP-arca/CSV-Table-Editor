@@ -46,9 +46,18 @@ def find_pnu_from_df(df):
 
     if not pnu:
         for x in df:
-            if x and len(x) == 19 and x.isdigit():
-                pnu = x
-                break
+            target = x
+            if target:
+                if not isinstance(target, str):
+                    try:
+                        target = str(target)
+                    except Exception as e:
+                        print("find_pnu_from_df : error while converting to str", e)
+                        continue
+
+                if len(target) == 19 and target.isdigit():
+                    pnu = target
+                    break
 
     return pnu
 
