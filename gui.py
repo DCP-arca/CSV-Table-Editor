@@ -12,7 +12,7 @@ from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog, ImageViewerDialog
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog, ImageViewerDialog, FuncLoadingDialog
 from network import get_mapinfo_from_pnu, get_map_img
 from theme import apply_theme
 
@@ -146,8 +146,8 @@ class CSVTableEditor(QMainWindow):
         table_widget.on_page_refreshed.connect(self.on_page_refreshed)
         table_widget.on_columnselect_changed.connect(
             self.on_columnselect_changed)
-        table_widget.on_columnsort_changed.connect(
-            self.on_columnsort_changed)
+        table_widget.on_columnsort_asked.connect(
+            self.on_columnsort_asked)
         # 나중에 써먹어야하니까 self. 으로 내부 변수로 만듬
         self.table_widget = table_widget
         layout_left.addWidget(table_widget)
@@ -195,8 +195,7 @@ class CSVTableEditor(QMainWindow):
         load_mode = 0
         # sep_mode = 0
 
-        is_already_loaded = (self.dm.data is not None)
-        dialog = LoadOptionDialog(is_already_loaded)
+        dialog = LoadOptionDialog(self.dm.is_already_loaded())
         if dialog.exec_() == QDialog.Accepted:
             load_mode = dialog.selected_radiovalue
             # sep_mode = dialog.selected_seperator
@@ -307,11 +306,14 @@ class CSVTableEditor(QMainWindow):
                         list_checked.append(index + page_seed)
 
                 # 내보내기
-                self.dm.export(file_path,
-                               sep_mode=sep_mode,
-                               list_target_column=list_target_column,
-                               select_mode=select_mode,
-                               list_checked=list_checked)
+                is_export_success = self.dm.export(file_path,
+                                                   sep_mode=sep_mode,
+                                                   list_target_column=list_target_column,
+                                                   select_mode=select_mode,
+                                                   list_checked=list_checked)
+                if not is_export_success:
+                    QMessageBox.information(
+                        self, '경고', "내보내는 중에 에러가 발생했습니다.")
 
     def show_load_dialog(self, load_mode):
         select_dialog = QFileDialog()
@@ -373,13 +375,21 @@ class CSVTableEditor(QMainWindow):
         self.search_widget.set_columns(selected_columns)
 
     # 정렬이 실행될때 호출됨
-    def on_columnsort_changed(self, column_name, sort_mode):
-        FileIODialog(
+    def on_columnsort_asked(self, index, column_name, sort_mode):
+        dialog = FuncLoadingDialog(
             "정렬 중입니다.(파일이 크면 오래 걸릴 수 있습니다.)",
-            lambda: self.dm.sort(column_name, sort_mode)).exec_()
+            lambda: self.dm.sort(column_name, sort_mode))
 
-        self.table_widget.set_data(
-            self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.SORT)
+        if dialog.exec_() == QDialog.Accepted:
+            is_success = dialog.result
+            if is_success:
+                self.table_widget.set_data(
+                    self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.SORT)
+                self.table_widget.on_columnsort_answered(
+                    index, column_name, sort_mode)
+                return
+
+        QMessageBox.information(self, '경고', "숫자로 이루어진 경우에만 정렬이 가능합니다.")
 
     # 드래그드랍 이벤트를 위한 고정 템플릿
     def dragEnterEvent(self, event):

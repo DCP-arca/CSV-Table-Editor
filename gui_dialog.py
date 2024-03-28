@@ -11,8 +11,12 @@ from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR
 LIST_GROUPBOX_TEXT = [
     ["열 분리자 선택", ["| (버티컬바)", ", (쉼표)"]],
     ["열 내보내기", ["모두", "현재 보이는 열(라벨)만 내보내기"]],
-    ["행 내보내기", ["모두", "불러와진 행만 내보내기", "불러와진 행에 select열 추가해 내보내기", "체크된 행만 내보내기",
-                "체크된 행에 select열 추가해 내보내기"]]
+    ["행 내보내기", ["모두",
+                "불러와진 행만 내보내기",
+                "불러와진 행에 select열 추가해 내보내기",
+                # "체크된 행만 내보내기", ##TODO: possible error
+                # "체크된 행에 select열 추가해 내보내기" ##TODO: possible error
+                ]]
 ]
 
 
@@ -262,7 +266,55 @@ class SaveOptionDialog(QDialog):
         super().accept()
 
 
-class LoadingWorker(QThread):
+class FuncLoadingWorker(QThread):
+    finished = pyqtSignal(bool)
+
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def run(self):
+        result = False
+        try:
+            result = self.func()
+        except Exception as e:
+            print(e)
+            result = False
+
+        self.finished.emit(result)
+
+
+class FuncLoadingDialog(QDialog):
+    def __init__(self, text, func):
+        super().__init__()
+        self.text = text
+        self.func = func
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("로딩 중")
+
+        layout = QVBoxLayout()
+        self.progress_label = QLabel(self.text)
+        layout.addWidget(self.progress_label)
+
+        self.setLayout(layout)
+
+        self.resize(200, 100)
+        self.setWindowFlag(Qt.WindowCloseButtonHint, False)
+
+    def showEvent(self, event):
+        self.worker_thread = FuncLoadingWorker(self.func)
+        self.worker_thread.finished.connect(self.on_finished)
+        self.worker_thread.start()
+        super().showEvent(event)
+
+    def on_finished(self, b):
+        self.result = b
+        self.accept()
+
+
+class FileLoadingWorker(QThread):
     finished = pyqtSignal(pd.DataFrame)
 
     def __init__(self, func):
@@ -306,7 +358,7 @@ class FileIODialog(QDialog):
         self.setWindowFlag(Qt.WindowCloseButtonHint, False)
 
     def showEvent(self, event):
-        self.worker_thread = LoadingWorker(self.func)
+        self.worker_thread = FileLoadingWorker(self.func)
         self.worker_thread.finished.connect(self.on_finished)
         self.worker_thread.start()
         super().showEvent(event)

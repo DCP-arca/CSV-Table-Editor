@@ -225,7 +225,7 @@ class CSVTableView(QTableView):
 # 자식으로는 버튼들과 table_view
 class CSVTableWidget(QWidget):
     on_columnselect_changed = pyqtSignal(list)
-    on_columnsort_changed = pyqtSignal(str, int)
+    on_columnsort_asked = pyqtSignal(int, str, int)
     on_page_refreshed = pyqtSignal()
 
     # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
@@ -405,9 +405,11 @@ class CSVTableWidget(QWidget):
                 sort_mode = ENUM_TABLEVIEW_SORTMODE.ASCEND
 
         if sort_mode != -1:
-            self.now_sort = [index, sort_mode]
-            self.table_view.set_sort_indicator(index, sort_mode)
-            self.on_columnsort_changed.emit(column_name, sort_mode)
+            self.on_columnsort_asked.emit(index, column_name, sort_mode)
+
+    def on_columnsort_answered(self, index, column_name, sort_mode):
+        self.now_sort = [index, sort_mode]
+        self.table_view.set_sort_indicator(index, sort_mode)
 
 
 if __name__ == '__main__':

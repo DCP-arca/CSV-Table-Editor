@@ -2,6 +2,7 @@ import os
 import re
 
 import pandas as pd
+import numpy as np
 from dbfread import DBF
 
 from PyQt5.QtWidgets import QDialog
@@ -43,6 +44,9 @@ class DataManager:
         self.cond_data = None
         self.now_conditions = []
         self.is_dbf_loaded = False
+
+    def is_already_loaded(self):
+        return (self.data is not None)
 
     def check_parquet_exists(self, src):
         # 파르켓 경로 생성
@@ -139,66 +143,72 @@ class DataManager:
                 return ERRORCODE_LOAD.NOT_FOUND_PNU
 
         # 5. 멤버 변수 초기화
-        self.cond_data = self.data.copy(deep=True)
+        self.cond_data = self._create_copied_data()
         self.now_conditions = []
         self.is_dbf_loaded = src.endswith(".dbf")
 
         return ERRORCODE_LOAD.SUCCESS
 
+    def _create_copied_data(self):
+        copied_data = self.data.copy(deep=True)
+        copied_data.replace('', np.nan, inplace=True)
+        copied_data.fillna(np.nan, inplace=True)
+
+        return copied_data
+
     def change_condition(self, conditions):
-        self.cond_data = self.data.copy(deep=True)
+        sel, is_success = self._create_series_by_condition(conditions)
+
+        if is_success:
+            # 성공시에만 저장.
+            self.cond_data = self._create_copied_data()
+            self.cond_data = self.cond_data[sel]
+            self.now_conditions = conditions
+            return True
+
+        return False
+
+    def sort(self, column_name, sort_mode):
+        try:
+            if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
+                self.cond_data = self.cond_data.sort_values(
+                    by=column_name, ascending=True, na_position='last')  # , key=key_func)
+            elif sort_mode == ENUM_TABLEVIEW_SORTMODE.DESCEND:
+                self.cond_data = self.cond_data.sort_values(
+                    by=column_name, ascending=False, na_position='last')  # , key=key_func)
+            elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
+                self.cond_data = self.cond_data.sort_index()
+        except Exception as e:
+            print(e)
+            return False
+
+        return True
+
+    def _create_series_by_condition(self, conditions):
+        sel = pd.Series([True] * len(self.data))
+
+        cond_data = self._create_copied_data()
+
         for cond in conditions:
             fs = FilterStruct(datastr=cond)
 
             if fs.is_minmax_mode:
                 try:
-                    cond_float = self.cond_data[fs.column].astype(float)
+                    result_float = cond_data[fs.column].astype(float)
                 except Exception as e:
                     print(e)
-                    return False
-                self.cond_data = self.cond_data[(
-                    cond_float >= float(fs.min_val)) & (cond_float <= float(fs.max_val))]
-            else:
-                self.cond_data = self.cond_data[self.cond_data[fs.column].str.contains(
-                    fs.str_val)]
+                    return None, False
 
-        # now_conditions는 성공시에만 저장합니다.
-        self.now_conditions = conditions
-        return True
-
-    def sort(self, column_name, sort_mode):
-        def key_func(x):
-            return x.astype(float)
-
-        if sort_mode == ENUM_TABLEVIEW_SORTMODE.ASCEND:
-            self.data = self.data.sort_values(by=column_name, key=key_func)
-            self.cond_data = self.cond_data.sort_values(
-                by=column_name, key=key_func)
-        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.DESCEND:
-            self.data = self.data.sort_values(
-                by=column_name, ascending=False, key=key_func)
-            self.cond_data = self.cond_data.sort_values(
-                by=column_name, ascending=False, key=key_func)
-        elif sort_mode == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
-            self.data = self.data.sort_index()
-            self.cond_data = self.cond_data.sort_index()
-
-    def _create_series_by_condition(self, target_df):
-        sel = pd.Series([True] * len(self.data))
-
-        for cond in self.now_conditions:
-            fs = FilterStruct(datastr=cond)
-
-            if fs.is_minmax_mode:
-                result_float = target_df[fs.column].astype(float)
                 sel &= (result_float >= float(fs.min_val)) & (
                     result_float <= float(fs.max_val))
             else:
-                sel &= target_df[fs.column].str.contains(
+                sel &= self.data[fs.column].str.contains(
                     fs.str_val)
-        return sel
+
+        return sel, True
 
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
+    # 체크모드가 아니라면 cond_data를 직접 내보내지 마시오. sort에 영향을 받음.
     def export(self, dst, sep_mode, list_target_column, select_mode, list_checked):
         # option 1. 분리자 설정
         sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
@@ -208,11 +218,11 @@ class DataManager:
             result = self.data.copy(deep=True)
         elif select_mode == ENUM_SAVE_ROW.FILTERED:
             result = self.data.copy(deep=True)
-            sel = self._create_series_by_condition(result)
+            sel, _ = self._create_series_by_condition(self.now_conditions)
             result = result[sel]
         elif select_mode == ENUM_SAVE_ROW.FILTERED_SELECT:
             result = self.data.copy(deep=True)
-            sel = self._create_series_by_condition(result)
+            sel, _ = self._create_series_by_condition(self.now_conditions)
             result["select"] = pd.Series(sel).astype(int)
         elif select_mode == ENUM_SAVE_ROW.CHECKED:
             list_checked_df = []
@@ -220,8 +230,8 @@ class DataManager:
                 list_checked_df.append(self.cond_data.iloc[index])
             result = pd.concat(list_checked_df)
         elif select_mode == ENUM_SAVE_ROW.CHECKED_SELECT:
-            result = self.data.copy(deep=True)
-            sel = pd.Series([False] * len(self.data))
+            result = self.cond_data.copy(deep=True)
+            sel = pd.Series([False] * len(self.cond_data))
             sel.iloc[list_checked] = True
             result["select"] = pd.Series(sel).astype(int)
 
@@ -231,16 +241,21 @@ class DataManager:
 
         if self.is_dbf_loaded:
             # TODO write dbf
-            FileIODialog(
+            fd = FileIODialog(
                 "csv 파일을 쓰는 중입니다.",
                 lambda: result.to_csv(dst,
                                       sep=sep,
                                       index=False,
-                                      encoding="euc-kr")).exec_()
+                                      encoding="euc-kr"))
         else:
-            FileIODialog(
+            fd = FileIODialog(
                 "csv 파일을 쓰는 중입니다.",
                 lambda: result.to_csv(dst,
                                       sep=sep,
                                       index=False,
-                                      encoding="euc-kr")).exec_()
+                                      encoding="euc-kr"))
+
+        if fd.exec_() != QDialog.Accepted:
+            return False
+
+        return True
