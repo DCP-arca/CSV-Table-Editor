@@ -4,7 +4,7 @@ from PyQt5.QtCore import QAbstractTableModel, Qt, pyqtSignal
 from PyQt5.QtGui import QIntValidator, QPainter, QColor, QFont
 import pandas as pd
 
-from consts import ENUM_STR_MAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE
+from consts import CONST_TABLEKEY_STRMAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE, ENUM_TABLEVIEW_HVFUNC, ENUM_TABLEVIEW_HVFUNC_NOSORT_LIST, ENUM_TABLEVIEW_HVFUNC_SORT_LIST
 
 # 페이지만들고 넘기기 만들기
 # 표클릭 정렬 만들기
@@ -131,11 +131,11 @@ class PandasModel(QAbstractTableModel):
                 if self.column_name_mode == 0:
                     result = column_code
                 elif self.column_name_mode == 1:
-                    result = ENUM_STR_MAP[column_code]
+                    result = CONST_TABLEKEY_STRMAP[column_code]
                     # null check
                     result = result if result else column_code
                 elif self.column_name_mode == 2:
-                    name = ENUM_STR_MAP[column_code]
+                    name = CONST_TABLEKEY_STRMAP[column_code]
                     # null check
                     if name:
                         result = name + "(" + column_code + ")"
@@ -277,9 +277,9 @@ class CSVTableView(QTableView):
         context_menu = QMenu(self)
 
         if not self.parent().now_sort or self.parent().now_sort[1] == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
-            str_menu_list = ["새로 만들기", "복제", "제거", "복사", "붙여넣기"]  # TODO Hardcoded
+            str_menu_list = ENUM_TABLEVIEW_HVFUNC_NOSORT_LIST[:]
         else:
-            str_menu_list = ["제거", "복사", "붙여넣기"]  # TODO Hardcoded
+            str_menu_list = ENUM_TABLEVIEW_HVFUNC_SORT_LIST[:]
 
         for str_menu in str_menu_list:
             action = context_menu.addAction(str_header + " " + str_menu)

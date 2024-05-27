@@ -1,11 +1,28 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QComboBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent, QPoint, QSize
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, CONST_COORDSYS_STRMAP
 from network import get_addr_from_epsg
+
+
+def transform_to_epsg4326(x, y, epsg):
+    if epsg == 4326:
+        return x, y
+
+    # 좌표를 GeoDataFrame으로 변환
+    gdf = gpd.GeoDataFrame(
+        geometry=[Point(x, y)], crs=f"EPSG:{epsg}")
+
+    # EPSG:4326으로 변환
+    gdf = gdf.to_crs(epsg=4326)
+    p = gdf.loc[0][0]
+
+    return float(p.x), float(p.y)
 
 
 # 주의! 이 txt 순서는 ENUM_SEPERATOR, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW에 영향을 받습니다.
@@ -246,6 +263,11 @@ class CoordDialog(QDialog):
         lineedit_y = QLineEdit(self)
         edit_hbox.addWidget(lineedit_y)
 
+        self.comboBox = QComboBox()
+        for key, value in CONST_COORDSYS_STRMAP.items():
+            self.comboBox.addItem(f"{key}:{value}", key)
+        layout.addWidget(self.comboBox)
+
         self.lineedit_x = lineedit_x
         self.lineedit_y = lineedit_y
 
@@ -258,17 +280,24 @@ class CoordDialog(QDialog):
     def on_click_find_button(self):
         x = self.lineedit_x.text()
         y = self.lineedit_y.text()
+        coordsys = self.comboBox.currentData()
 
         if not is_float(x) or not is_float(y):
             QMessageBox.information(self, '경고', "잘못된 좌표입니다.")
             return
 
+        try:
+            x, y = transform_to_epsg4326(x, y, int(coordsys))
+        except Exception as e:
+            QMessageBox.information(self, '경고', f"좌표 변환 중 에러가 발생했습니다.\n\n{e}")
+            return
+
         apikey = self.gui.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
-        epsg = [x, y]
         if not apikey:
             QMessageBox.information(self, '경고', "상단메뉴에서 VWorld API를 등록해주세요.")
             return
 
+        epsg = [x, y]
         addr = get_addr_from_epsg(apikey, epsg)
         if not addr:
             QMessageBox.information(self, '경고', "주소를 찾을 수 없습니다.")

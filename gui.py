@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QWi
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
 
-from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE
+from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE, ENUM_TABLEVIEW_HVFUNC
 
 from data_manager import DataManager
 from gui_tableview import CSVTableWidget
@@ -344,8 +344,11 @@ class CSVTableEditor(QMainWindow):
 
     # 표의 행을 눌렀을때 호출됨
     def on_clicked_table(self, cur, prev):
+        self.refresh_tables(cur.row())
+
+    def refresh_tables(self, row):
         # 표시할 행을 구함
-        target_index = cur.row() + (self.table_widget.get_page() - 1) * \
+        target_index = row + (self.table_widget.get_page() - 1) * \
             self.table_widget.page_size
         target_df = self.dm.cond_data.iloc[target_index]
 
@@ -373,29 +376,30 @@ class CSVTableEditor(QMainWindow):
 
         self.dm.change_value(target_index, col, value)
 
+        self.refresh_tables(row)
+
     def on_hv_edit_callback(self, is_h, pos, str_menu):
         if not is_h:
             pos = pos + (self.table_widget.get_page() - 1) * \
                 self.table_widget.page_size
 
-        # TODO: Hardcoded
-        if str_menu == "새로 만들기":
+        if str_menu == ENUM_TABLEVIEW_HVFUNC.CREATE:
             if is_h:
                 # 컬럼값묻는 dialog 나옴(tableview에서 class 재활용(gui_dialog로 옮기기))
                 self.dm.hv_add_column()
             else:
                 # dialog 없이 바로 생성
                 self.dm.hv_add_row()
-        elif str_menu == "복제":
+        elif str_menu == ENUM_TABLEVIEW_HVFUNC.DUPLICATE:
             # index 자리에 넣어지고 원래있던건 한칸 뒤로 미룸
             self.dm.hv_duplicate()
-        elif str_menu == "제거":
+        elif str_menu == ENUM_TABLEVIEW_HVFUNC.REMOVE:
             self.dm.hv_remove()
-        elif str_menu == "복사":
+        elif str_menu == ENUM_TABLEVIEW_HVFUNC.COPY:
             pass
             # 가로면 가로 행렬 값 그대로 가져와서 CSVTE_row[{s}] 클립보드에 넣기
             # 세로면 세로 행렬의 name, index 가져와서 CSVTE_column[index, name] 클립보드에 넣기 -> name, index가 틀리면 없다고 에러 내기
-        elif str_menu == "붙여넣기":
+        elif str_menu == ENUM_TABLEVIEW_HVFUNC.PASTE:
             pass
             # 가로: CSVTE_row[{s}] 형식 검사 -> 삽입하되, 총갯수가 부족하면 나머지 전부 공란(공란이 뭐였는지 다시 보고 오기 ""인지 NaN인지)
             # 세로면

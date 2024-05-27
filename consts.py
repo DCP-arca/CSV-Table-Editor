@@ -48,6 +48,28 @@ ENUM_TABLEVIEW_INITMODE = DotMap(
     CONDITION=2
 )
 
+ENUM_TABLEVIEW_HVFUNC = DotMap(
+    CREATE="새로 만들기",
+    DUPLICATE="복제",
+    REMOVE="제거",
+    COPY="복사",
+    PASTE="붙여넣기"
+)
+
+ENUM_TABLEVIEW_HVFUNC_NOSORT_LIST = [
+    ENUM_TABLEVIEW_HVFUNC.CREATE,
+    ENUM_TABLEVIEW_HVFUNC.DUPLICATE,
+    ENUM_TABLEVIEW_HVFUNC.REMOVE,
+    ENUM_TABLEVIEW_HVFUNC.COPY,
+    ENUM_TABLEVIEW_HVFUNC.PASTE
+]
+
+ENUM_TABLEVIEW_HVFUNC_SORT_LIST = [
+    ENUM_TABLEVIEW_HVFUNC.REMOVE,
+    ENUM_TABLEVIEW_HVFUNC.COPY,
+    ENUM_TABLEVIEW_HVFUNC.PASTE
+]
+
 ERRORCODE_LOAD = DotMap(
     SUCCESS=0,
     CANCEL=1,
@@ -67,7 +89,7 @@ SAVE_KEY_MAP = DotMap(
     OPTION_LOWSPECMODE="OPTION_LOWSPECMODE"
 )
 
-ENUM_STR_MAP = DotMap(
+CONST_TABLEKEY_STRMAP = DotMap(
     STDMT="기준월",
     PNU="토지코드",
     LAND_SEQNO="토지일련번호",
@@ -153,6 +175,23 @@ ENUM_STR_MAP = DotMap(
     COL_ADM_SECT_CD="원천시군구코드"
 )
 
+CONST_COORDSYS_STRMAP = {
+    4326: "WGS84 경위도",
+    4019: "GRS80 경위도",
+    3857: "Google Mercator",
+    900913: "Google Mercator",
+    5180: "서부원점(GRS80)",
+    5185: "서부원점(GRS80)",
+    5181: "중부원점(GRS80)",
+    5186: "중부원점(GRS80)",
+    5182: "제주원점(GRS80, 55만)",
+    5183: "동부원점(GRS80)",
+    5187: "동부원점(GRS80)",
+    5184: "동해(울릉)원점(GRS80)",
+    5188: "동해(울릉)원점(GRS80)",
+    5179: "UTM-K(GRS80)"
+}
+
 
 if __name__ == "__main__":
-    print(ENUM_STR_MAP.COL_ADM_SECT_CD)
+    print(CONST_TABLEKEY_STRMAP.COL_ADM_SECT_CD)

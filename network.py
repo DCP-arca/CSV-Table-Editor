@@ -23,7 +23,7 @@ ADD_PARAMS = {
 def get_addr_from_epsg(apikey, epsg):
     params = ADD_PARAMS.copy()
 
-    params['point'] = epsg[0] + "," + epsg[1]
+    params['point'] = str(epsg[0]) + "," + str(epsg[1])
     params['key'] = apikey
 
     response = requests.get(URL_ADDR, params=params)
@@ -35,7 +35,7 @@ def get_addr_from_epsg(apikey, epsg):
         try:
             return j['response']['result'][0]['text']
         except Exception as e:
-            print(f"검색 실패, {e}")
+            print(f"검색 실패, {str(j)}")
     else:
         print(f"API 요청 실패: {response.status_code}")
 
