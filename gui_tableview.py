@@ -5,6 +5,7 @@ from PyQt5.QtGui import QIntValidator, QPainter, QColor, QFont
 import pandas as pd
 
 from consts import CONST_TABLEKEY_STRMAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMODE, ENUM_TABLEVIEW_HVFUNC, ENUM_TABLEVIEW_HVFUNC_NOSORT_LIST, ENUM_TABLEVIEW_HVFUNC_SORT_LIST
+from gui_dialog import SimpleInputDialog
 
 # 페이지만들고 넘기기 만들기
 # 표클릭 정렬 만들기
@@ -13,38 +14,6 @@ from consts import CONST_TABLEKEY_STRMAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIE
 
 DIALOG_GRID_WIDTH = 8
 DEFAULT_TABLEVIEW_PAGE_SIZE = 20
-
-
-class CustomInputDialog(QDialog):
-    def __init__(self, parent, title, content, text=""):
-        super().__init__(parent)
-        self.initUI(title, content, text)
-
-    def initUI(self, title, content, text):
-        self.setWindowTitle(title)
-
-        self.layout = QVBoxLayout(self)
-
-        self.label = QLabel(content, self)
-        self.layout.addWidget(self.label, stretch=1)
-
-        self.layout.addSpacing(10)
-
-        self.text_input = QLineEdit(self)
-        self.text_input.setMinimumHeight(30)
-        self.text_input.setText(text)
-        self.layout.addWidget(self.text_input, stretch=1)
-
-        self.layout.addSpacing(10)
-
-        self.button_box = QPushButton('확인', self)
-        self.button_box.clicked.connect(self.accept)
-        self.layout.addWidget(self.button_box, stretch=1)
-
-        self.setLayout(self.layout)
-
-    def getText(self):
-        return self.text_input.text()
 
 
 class ColumnSelectionDialog(QDialog):
@@ -269,46 +238,48 @@ class CSVTableView(QTableView):
     def open_vertical_context_menu(self, position):
         self._handle_hv_context_menu(False, position)
 
-    def _handle_hv_context_menu(self, is_h, position):
-        str_header = "열" if is_h else "행"
+    def _handle_hv_context_menu(self, is_column, position):
+        str_header = "열" if is_column else "행"
 
-        header = self.horizontalHeader() if is_h else self.verticalHeader()
+        header = self.horizontalHeader() if is_column else self.verticalHeader()
         row = header.logicalIndexAt(position)
-        context_menu = QMenu(self)
 
         if not self.parent().now_sort or self.parent().now_sort[1] == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
             str_menu_list = ENUM_TABLEVIEW_HVFUNC_NOSORT_LIST[:]
         else:
             str_menu_list = ENUM_TABLEVIEW_HVFUNC_SORT_LIST[:]
 
-        for str_menu in str_menu_list:
-            action = context_menu.addAction(str_header + " " + str_menu)
-            action.triggered.connect(
-                lambda checked, hv=is_h, r=row, s=str_menu: self.on_hv_edit_callback(hv, r, s))
+        if str_menu_list:
+            context_menu = QMenu(self)
+            for str_menu in str_menu_list:
+                action = context_menu.addAction(str_header + " " + str_menu)
+                action.triggered.connect(
+                    lambda checked, hv=is_column, r=row, s=str_menu: self.on_hv_edit_callback(hv, r, s))
 
-        context_menu.exec_(header.viewport().mapToGlobal(position))
+            context_menu.exec_(header.viewport().mapToGlobal(position))
 
     def open_table_context_menu(self, position):
         indexes = self.selectedIndexes()
         if indexes:
-            row = indexes[0].row()
-            col = indexes[0].column()
-            context_menu = QMenu(self)
+            if not self.parent().now_sort or self.parent().now_sort[1] == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
+                row = indexes[0].row()
+                col = indexes[0].column()
+                context_menu = QMenu(self)
 
-            action = context_menu.addAction("수정")
+                action = context_menu.addAction("수정")
 
-            action.triggered.connect(
-                lambda: self.on_table_contextmenu_triggered(row, col))
+                action.triggered.connect(
+                    lambda: self.on_table_contextmenu_triggered(row, col))
 
-            context_menu.exec_(
-                self.viewport().mapToGlobal(position))
+                context_menu.exec_(
+                    self.viewport().mapToGlobal(position))
 
     def on_table_contextmenu_triggered(self, row, col):
         if True:  # 수정
             target_index = row + (self.get_page()) * self.page_size
             target_df = self.model()._data.iloc[target_index]
 
-            dialog = CustomInputDialog(
+            dialog = SimpleInputDialog(
                 self, '내용 수정', '수정할 내용을 입력하세요.', target_df[col])
             if dialog.exec_() == QDialog.Accepted:
                 self.on_value_edit_callback(row, col, dialog.getText())
@@ -397,21 +368,28 @@ class CSVTableWidget(QWidget):
             self.enable_ui(True, [self.column_button])
             self.set_placeholder_text(
                 "총 " + str(len(self._parent.dm.data)) + "개의 행이 로드 되었으며,\n현재 선택된 행은 " + str(len(data)) + "개 입니다.")  # TODO hardcoded
-
-        if not self.lowspec_mode:
+        else:
             self.enable_ui(True)
             if mode == ENUM_TABLEVIEW_INITMODE.LOAD:
                 self.table_view.set_data_with_init_column(data)
                 self.now_sort = []
             elif mode == ENUM_TABLEVIEW_INITMODE.SORT:
                 self.table_view.set_data(data)
-            elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION:
+            elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION or mode == ENUM_TABLEVIEW_INITMODE.EDIT:
                 self.table_view.set_data(data)
                 self.table_view.set_sort_indicator(
                     0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
                 self.now_sort = []
 
+            before_page = self.get_page()
+
             self.init_page()
+
+            if mode == ENUM_TABLEVIEW_INITMODE.EDIT:
+                max_pag = self.table_view.get_maxpage()
+                if before_page <= max_pag:
+                    self.page_label.setText(str(before_page))
+                    self.goto_page()
 
     # this function must be called after table_view.set_data
 

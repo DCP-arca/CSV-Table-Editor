@@ -1,38 +1,56 @@
 import pandas as pd
 import pyperclip
+import re
+
+REG_TAG = r"^CSVTE_(column|row)\[(.+?)\]$"
 
 
-def copy_to_clipboard(df, key, axis):
-    if axis == 'column':
-        if key in df.columns:
-            value = df[key].to_dict()
-            result = f"CSVTE_row[{value}]"
-            pyperclip.copy(result)
-        else:
-            raise ValueError(f"Column {key} does not exist in the DataFrame.")
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
 
-    elif axis == 'row':
-        if key in df.index:
-            index = df.index.get_loc(key)
-            result = f"CSVTE_column[{index}, {key}]"
-            pyperclip.copy(result)
-        else:
-            raise ValueError(f"Row {key} does not exist in the DataFrame.")
+
+def clipboard_copy_csvte_info(df, key, is_column):
+    if is_column:
+        result = f"CSVTE_column[{key}]"
+        pyperclip.copy(result)
     else:
-        raise ValueError("Axis must be either 'row' or 'column'.")
+        values_str = ', '.join(map(str, df.iloc[key]))
+        result = f"CSVTE_row[{values_str}]"
+        pyperclip.copy(result)
 
 
-# 예제 데이터 프레임 생성
-data = {
-    'A': [1, 2, 3],
-    'B': [4, 5, 6],
-    'C': [7, 8, 9]
-}
-df = pd.DataFrame(data, index=['X', 'Y', 'Z'])
+def clipboard_paste_csvte_info():
+    csvte_str = pyperclip.paste()
 
-# 함수 사용 예제
-try:
-    copy_to_clipboard(df, 'B', 'column')  # 열을 클립보드에 복사
-    copy_to_clipboard(df, 'Y', 'row')  # 행을 클립보드에 복사
-except ValueError as e:
-    print(e)
+    result = None
+    reg_result = re.match(REG_TAG, csvte_str)
+    if reg_result:
+        is_column = reg_result.group(1) == "column"
+        result = reg_result.group(2).split(
+            ",") if not is_column else reg_result.group(2)
+
+        if is_column and not is_float(result):
+            result = None
+
+    return is_column, result
+
+
+if __name__ == "__main__":
+    data = {
+        'A': [1, 2, 3],
+        'B': [4, 5, 6],
+        'C': [7, 8, 9]
+    }
+    df = pd.DataFrame(data, index=['X', 'Y', 'Z'])
+
+    try:
+        clipboard_copy_csvte_info(df, 2, True)  # 열을 클립보드에 복사
+        print(clipboard_paste_csvte_info())
+        clipboard_copy_csvte_info(df, 1, False)  # 행을 클립보드에 복사
+        print(clipboard_paste_csvte_info())
+    except ValueError as e:
+        print(e)

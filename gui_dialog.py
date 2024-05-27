@@ -16,7 +16,7 @@ def transform_to_epsg4326(x, y, epsg):
 
     # 좌표를 GeoDataFrame으로 변환
     gdf = gpd.GeoDataFrame(
-        geometry=[Point(x, y)], crs=f"EPSG:{epsg}")
+        geometry=[Point(y, x)], crs=f"EPSG:{epsg}")
 
     # EPSG:4326으로 변환
     gdf = gdf.to_crs(epsg=4326)
@@ -299,14 +299,43 @@ class CoordDialog(QDialog):
 
         epsg = [x, y]
         addr = get_addr_from_epsg(apikey, epsg)
-        if not addr:
-            QMessageBox.information(self, '경고', "주소를 찾을 수 없습니다.")
-            return
 
         self.gui.open_img({
             "epsg": epsg,
             "addr": addr
         })
+
+
+class SimpleInputDialog(QDialog):
+    def __init__(self, parent, title, content, text=""):
+        super().__init__(parent)
+        self.initUI(title, content, text)
+
+    def initUI(self, title, content, text):
+        self.setWindowTitle(title)
+
+        self.layout = QVBoxLayout(self)
+
+        self.label = QLabel(content, self)
+        self.layout.addWidget(self.label, stretch=1)
+
+        self.layout.addSpacing(10)
+
+        self.text_input = QLineEdit(self)
+        self.text_input.setMinimumHeight(30)
+        self.text_input.setText(text)
+        self.layout.addWidget(self.text_input, stretch=1)
+
+        self.layout.addSpacing(10)
+
+        self.button_box = QPushButton('확인', self)
+        self.button_box.clicked.connect(self.accept)
+        self.layout.addWidget(self.button_box, stretch=1)
+
+        self.setLayout(self.layout)
+
+    def getText(self):
+        return self.text_input.text()
 
 
 class SaveOptionDialog(QDialog):

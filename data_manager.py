@@ -37,6 +37,18 @@ def remove_special_characters(text):
     return clean_text
 
 
+class DataEditType:
+    EDIT_VALUE = 0
+    ADD_COLUMN = 1
+    ADD_ROW = 2
+    DUPLICATE_COLUMN = 3
+    DUPLICATE_ROW = 4
+    REMOVE_COLUMN = 5
+    REMOVE_ROW = 6
+    EDIT_COLUMN = 7
+    EDIT_ROW = 8
+
+
 class DataManager:
     def __init__(self, parent):
         self.parent = parent
@@ -159,10 +171,60 @@ class DataManager:
         return copied_data
 
     def change_value(self, row, col, value):
-        target_df = self.cond_data.iloc[row]
+        target_df = self.cond_data.iloc[row].copy()
         target_df[col] = value
+        self.cond_data.iloc[row] = target_df
 
-        self.edited_list.append([target_df.name, col, value])
+        self.edited_list.append(
+            [DataEditType.EDIT_VALUE, [col, value]])
+
+    def change_hv(self, edit_type: DataEditType, args):
+        df = self.cond_data
+
+        if edit_type == DataEditType.ADD_COLUMN:
+            df.insert(args[0], args[1], "")
+        elif edit_type == DataEditType.ADD_ROW:
+            new_row = pd.Series([""] * df.shape[1], index=df.columns)
+            insert_index = args[0]
+            self.cond_data = pd.concat([df.iloc[:insert_index], pd.DataFrame(
+                [new_row]), df.iloc[insert_index:]]).reset_index(drop=True)
+        elif edit_type == DataEditType.DUPLICATE_COLUMN:
+            col_name = df.columns[args[0]]
+            new_name = col_name[:]
+            while new_name in df:
+                new_name = "_" + new_name
+            df.insert(args[0], new_name, df[col_name])
+        elif edit_type == DataEditType.DUPLICATE_ROW:
+            duplicated_row = df.iloc[args[0]].copy()  # 지정한 행을 복제
+            insert_index = args[0]
+            self.cond_data = pd.concat([df.iloc[:insert_index], pd.DataFrame(
+                [duplicated_row]), df.iloc[insert_index:]]).reset_index(drop=True)
+        elif edit_type == DataEditType.REMOVE_COLUMN:
+            col_name = df.columns[args[0]]
+            df.drop(columns=[col_name], inplace=True)
+            df.reset_index(drop=True, inplace=True)
+        elif edit_type == DataEditType.REMOVE_ROW:
+            df.drop(index=args[0], inplace=True)
+            df.reset_index(drop=True, inplace=True)
+        elif edit_type == DataEditType.EDIT_COLUMN:
+            target_column_index = int(args[0])
+            coppied_column_index = int(args[1])
+            df.iloc[:, target_column_index] = df.iloc[:, coppied_column_index]
+        elif edit_type == DataEditType.EDIT_ROW:
+            target_index = args[0]
+            value_list = args[1]
+
+            for i, value in enumerate(value_list):
+                if i < len(df.columns):
+                    df.iat[target_index, i] = value
+                else:
+                    break
+
+            # 나머지 값을 빈 문자열("")로 대체
+            for i in range(len(value_list), len(df.columns)):
+                df.at[target_index, i] = ""
+
+        self.edited_list.append([edit_type, args])
 
     def change_condition(self, conditions):
         sel, is_success = self._create_series_by_condition(conditions)

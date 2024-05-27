@@ -88,7 +88,7 @@ def get_map_img(c_id, c_sec, epsg):
     # 줌 레벨 - 0 ~ 20
     _level = 16
     # 가로 세로 크기 (픽셀)
-    _w, _h = 500, 300
+    _w, _h = 700, 500
     # 지도 유형 - basic, traffic, satellite, satellite_base, terrain
     _maptype = "satellite"
     # 반환 이미지 형식 - jpg, jpeg, png8, png
@@ -96,7 +96,7 @@ def get_map_img(c_id, c_sec, epsg):
     # 고해상도 디스펠레이 지원을 위한 옵션 - 1, 2
     _scale = 1
     # 마커
-    _markers = f"""type:d|size:mid|pos:{lon} {lat}|color:red"""
+    _markers = f"""type:d|size:small|pos:{lon} {lat}|color:yellow"""
     # 라벨 언어 설정 - ko, en, ja, zh
     _lang = "ko"
     # 대중교통 정보 노출 - Boolean

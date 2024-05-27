@@ -7,13 +7,14 @@ from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
 
 from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE, ENUM_TABLEVIEW_HVFUNC
 
-from data_manager import DataManager
+from data_manager import DataManager, DataEditType
 from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, ImageViewerDialog, FuncLoadingDialog, CoordDialog
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, ImageViewerDialog, FuncLoadingDialog, CoordDialog, SimpleInputDialog
 from network import get_mapinfo_from_pnu, get_map_img
+from clipboard import clipboard_copy_csvte_info, clipboard_paste_csvte_info
 from theme import apply_theme
 
 TITLE_NAME = "CSV Table Editor"
@@ -197,6 +198,7 @@ class CSVTableEditor(QMainWindow):
     def init_variable(self):
         self.dm = DataManager(self)
         self.showing_columns = []
+        self.hv_copy_mode = False
 
     def start_load(self, src=""):
         load_mode = 0
@@ -222,6 +224,7 @@ class CSVTableEditor(QMainWindow):
         error_code = self.dm.load_data(src, load_mode)
 
         if error_code == ERRORCODE_LOAD.SUCCESS:
+            self.hv_copy_mode = False
             self.showing_columns = self.dm.cond_data.columns.to_list()
             self.search_widget.initialize(self.showing_columns)
             self.table_widget.set_data(
@@ -378,41 +381,66 @@ class CSVTableEditor(QMainWindow):
 
         self.refresh_tables(row)
 
-    def on_hv_edit_callback(self, is_h, pos, str_menu):
-        if True:  # TODO : NOT YET
-            QMessageBox.information(self, '경고', "행 및 열 함수는 구현 중입니다.")
-
-            return
-
-        if not is_h:
+    def on_hv_edit_callback(self, is_column, row, str_menu):
+        pos = row
+        if not is_column:
             pos = pos + (self.table_widget.get_page() - 1) * \
                 self.table_widget.page_size
 
-        if str_menu == ENUM_TABLEVIEW_HVFUNC.CREATE:
-            if is_h:
-                # 컬럼값묻는 dialog 나옴(tableview에서 class 재활용(gui_dialog로 옮기기))
-                self.dm.hv_add_column()
-            else:
-                # dialog 없이 바로 생성
-                self.dm.hv_add_row()
-        elif str_menu == ENUM_TABLEVIEW_HVFUNC.DUPLICATE:
-            # index 자리에 넣어지고 원래있던건 한칸 뒤로 미룸
-            self.dm.hv_duplicate()
-        elif str_menu == ENUM_TABLEVIEW_HVFUNC.REMOVE:
-            self.dm.hv_remove()
-        elif str_menu == ENUM_TABLEVIEW_HVFUNC.COPY:
-            pass
-            # 가로면 가로 행렬 값 그대로 가져와서 CSVTE_row[{s}] 클립보드에 넣기
-            # 세로면 세로 행렬의 name, index 가져와서 CSVTE_column[index, name] 클립보드에 넣기 -> name, index가 틀리면 없다고 에러 내기
-        elif str_menu == ENUM_TABLEVIEW_HVFUNC.PASTE:
-            pass
-            # 가로: CSVTE_row[{s}] 형식 검사 -> 삽입하되, 총갯수가 부족하면 나머지 전부 공란(공란이 뭐였는지 다시 보고 오기 ""인지 NaN인지)
-            # 세로면
+        if str_menu == ENUM_TABLEVIEW_HVFUNC.COPY:
+            clipboard_copy_csvte_info(self.dm.cond_data, pos, is_column)
+            self.hv_copy_mode = True
+        else:
+            edit_type = None
+            args = None
+            if str_menu == ENUM_TABLEVIEW_HVFUNC.CREATE:
+                if is_column:
+                    dialog = SimpleInputDialog(
+                        self, '이름 설정', '새 열의 이름을 설정하세요.')
+                    if dialog.exec_() == QDialog.Accepted:
+                        title = dialog.getText()
+                        if title:
+                            edit_type = DataEditType.ADD_COLUMN
+                            args = [pos, title]
+                else:
+                    edit_type = DataEditType.ADD_ROW
+                    args = [pos]
+            elif str_menu == ENUM_TABLEVIEW_HVFUNC.DUPLICATE:
+                edit_type = DataEditType.DUPLICATE_COLUMN if is_column else DataEditType.DUPLICATE_ROW
+                args = [pos]
+            elif str_menu == ENUM_TABLEVIEW_HVFUNC.REMOVE:
+                rows, columns = self.dm.cond_data.shape
+                if is_column:
+                    if columns <= 1:
+                        QMessageBox.information(self, '경고', "열의 갯수가 너무 적습니다.")
+                        return
+                    edit_type = DataEditType.REMOVE_COLUMN
+                else:
+                    if rows <= 1:
+                        QMessageBox.information(self, '경고', "행의 갯수가 너무 적습니다.")
+                        return
+                    edit_type = DataEditType.REMOVE_ROW
+                args = [pos]
+            elif str_menu == ENUM_TABLEVIEW_HVFUNC.PASTE:
+                target_h, result = clipboard_paste_csvte_info()
+                if target_h != is_column:
+                    QMessageBox.information(self, '경고', "붙여넣을 행이나 열이 잘못되었습니다.")
+                    return
+                if not self.hv_copy_mode:
+                    QMessageBox.information(self, '경고', "복사를 먼저 진행해주세요.")
+                    return
 
-        # 모든 hv_함수는 공통적으로 conv 수정 -> edited_list에 저장함.
-        # export할때 이 수정사항 리스트를 result에 적용해서 내보냄. (edited_list에는 change_value도 포함되는 것!)
-        # 이걸 위해 자료구조 하나 만들기.
-        # 자료구조는 type, args로 이루어져있음.
+                edit_type = DataEditType.EDIT_COLUMN if is_column else DataEditType.EDIT_ROW
+                args = [pos, result]
+
+            if edit_type:
+                self.dm.change_hv(edit_type, args)
+                self.table_widget.set_data(
+                    self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.EDIT)
+                self.refresh_tables(row)
+
+                if not str_menu == ENUM_TABLEVIEW_HVFUNC.PASTE:
+                    self.hv_copy_mode = False
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):
