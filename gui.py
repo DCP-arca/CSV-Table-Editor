@@ -12,7 +12,7 @@ from gui_tableview import CSVTableWidget
 from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
-from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, FileIODialog, ImageViewerDialog, FuncLoadingDialog
+from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, ImageViewerDialog, FuncLoadingDialog, CoordDialog
 from network import get_mapinfo_from_pnu, get_map_img
 from theme import apply_theme
 
@@ -94,6 +94,10 @@ class CSVTableEditor(QMainWindow):
         # action 안에 triggered라고 하는 callback(이벤트성 함수)가 있고 거기에 내 함수를 묶음.
         openAction.triggered.connect(self.start_load)
 
+        coordAction = QAction('좌표로 찾기(Find by Coord)', self)
+        coordAction.setShortcut('Ctrl+P')
+        coordAction.triggered.connect(self.show_coord_dialog)
+
         optionAction = QAction('옵션(Option)', self)
         optionAction.setShortcut('Ctrl+U')
         optionAction.triggered.connect(self.show_option_dialog)
@@ -103,6 +107,7 @@ class CSVTableEditor(QMainWindow):
         exitAction.triggered.connect(self.quit_app)
 
         filemenu.addAction(openAction)
+        filemenu.addAction(coordAction)
         filemenu.addAction(optionAction)
         filemenu.addAction(exitAction)
 
@@ -139,6 +144,7 @@ class CSVTableEditor(QMainWindow):
             self,
             self.on_clicked_table,
             self.on_value_edit_callback,
+            self.on_hv_edit_callback,
             self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20),
             strtobool(self.settings.value(
                 SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")),
@@ -243,12 +249,15 @@ class CSVTableEditor(QMainWindow):
 
             QMessageBox.information(self, '불러오기 실패', error_message)
 
-    def open_img(self):
+    def open_img(self, info_dict={}):
         # 1.epsg 체크
-        if not self.mapinfo_table.epsg:
-            QMessageBox.information(self, '경고', "주소를 확인할 수 없습니다.")
-            return
-        addr = self.mapinfo_table.datalist[0]
+        if not info_dict:
+            if not self.mapinfo_table.epsg:
+                QMessageBox.information(self, '경고', "주소를 확인할 수 없습니다.")
+                return
+            addr = self.mapinfo_table.datalist[0]
+        else:
+            addr = info_dict["addr"]
 
         # 2. id / secret 체크
         client_id = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTID, "")
@@ -261,7 +270,8 @@ class CSVTableEditor(QMainWindow):
 
         # 3. 이미지 얻어오기, content로 뱉어줌.
         is_success, content = get_map_img(
-            client_id, client_secret, self.mapinfo_table.epsg)
+            client_id, client_secret,
+            self.mapinfo_table.epsg if not info_dict else info_dict['epsg'])
         if not is_success:
             QMessageBox.information(
                 self, '경고', "Naver Cloud에 접속하는데 실패했습니다.\n\n" + str(content))
@@ -326,6 +336,9 @@ class CSVTableEditor(QMainWindow):
             fname = fname[0]
             self.load(fname, load_mode)
 
+    def show_coord_dialog(self):
+        CoordDialog(self).show()
+
     def show_option_dialog(self):
         OptionDialog(self).exec_()
 
@@ -359,6 +372,38 @@ class CSVTableEditor(QMainWindow):
             self.table_widget.page_size
 
         self.dm.change_value(target_index, col, value)
+
+    def on_hv_edit_callback(self, is_h, pos, str_menu):
+        if not is_h:
+            pos = pos + (self.table_widget.get_page() - 1) * \
+                self.table_widget.page_size
+
+        # TODO: Hardcoded
+        if str_menu == "새로 만들기":
+            if is_h:
+                # 컬럼값묻는 dialog 나옴(tableview에서 class 재활용(gui_dialog로 옮기기))
+                self.dm.hv_add_column()
+            else:
+                # dialog 없이 바로 생성
+                self.dm.hv_add_row()
+        elif str_menu == "복제":
+            # index 자리에 넣어지고 원래있던건 한칸 뒤로 미룸
+            self.dm.hv_duplicate()
+        elif str_menu == "제거":
+            self.dm.hv_remove()
+        elif str_menu == "복사":
+            pass
+            # 가로면 가로 행렬 값 그대로 가져와서 CSVTE_row[{s}] 클립보드에 넣기
+            # 세로면 세로 행렬의 name, index 가져와서 CSVTE_column[index, name] 클립보드에 넣기 -> name, index가 틀리면 없다고 에러 내기
+        elif str_menu == "붙여넣기":
+            pass
+            # 가로: CSVTE_row[{s}] 형식 검사 -> 삽입하되, 총갯수가 부족하면 나머지 전부 공란(공란이 뭐였는지 다시 보고 오기 ""인지 NaN인지)
+            # 세로면
+
+        # 모든 hv_함수는 공통적으로 conv 수정 -> edited_list에 저장함.
+        # export할때 이 수정사항 리스트를 result에 적용해서 내보냄. (edited_list에는 change_value도 포함되는 것!)
+        # 이걸 위해 자료구조 하나 만들기.
+        # 자료구조는 type, args로 이루어져있음.
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):

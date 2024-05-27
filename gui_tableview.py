@@ -155,13 +155,14 @@ class PandasModel(QAbstractTableModel):
 
 # 테이블뷰. 이 안에 PandasModel이 있음.
 class CSVTableView(QTableView):
-    def __init__(self, parent, select_callback, on_value_edit_callback, page_size, lowspec_mode):
+    def __init__(self, parent, select_callback, on_value_edit_callback, on_hv_edit_callback, page_size, lowspec_mode):
         super(CSVTableView, self).__init__(parent)
         self.placeholder_text = ""
 
         self._parent = parent
         self.select_callback = select_callback
         self.on_value_edit_callback = on_value_edit_callback
+        self.on_hv_edit_callback = on_hv_edit_callback
         self.page_size = page_size
         self.lowspec_mode = lowspec_mode
         self.setAcceptDrops(False)
@@ -269,18 +270,21 @@ class CSVTableView(QTableView):
         self._handle_hv_context_menu(False, position)
 
     def _handle_hv_context_menu(self, is_h, position):
-        str_header = "행" if is_h else "열"
+        str_header = "열" if is_h else "행"
 
         header = self.horizontalHeader() if is_h else self.verticalHeader()
-        pos = header.logicalIndexAt(position)
+        row = header.logicalIndexAt(position)
         context_menu = QMenu(self)
 
-        str_menu_list = ["새로 만들기", "복제", "제거", "복사", "덮어쓰기"]
+        if not self.parent().now_sort or self.parent().now_sort[1] == ENUM_TABLEVIEW_SORTMODE.ORIGINAL:
+            str_menu_list = ["새로 만들기", "복제", "제거", "복사", "붙여넣기"]  # TODO Hardcoded
+        else:
+            str_menu_list = ["제거", "복사", "붙여넣기"]  # TODO Hardcoded
 
         for str_menu in str_menu_list:
             action = context_menu.addAction(str_header + " " + str_menu)
             action.triggered.connect(
-                lambda checked, hv=is_h, p=pos, s=str_menu: self.on_hb_contextmenu_triggered(hv, p, s))
+                lambda checked, hv=is_h, r=row, s=str_menu: self.on_hv_edit_callback(hv, r, s))
 
         context_menu.exec_(header.viewport().mapToGlobal(position))
 
@@ -299,15 +303,13 @@ class CSVTableView(QTableView):
             context_menu.exec_(
                 self.viewport().mapToGlobal(position))
 
-    def on_hb_contextmenu_triggered(self, is_h, pos, str_menu):
-        print(is_h, pos, str_menu)
-
     def on_table_contextmenu_triggered(self, row, col):
         if True:  # 수정
             target_index = row + (self.get_page()) * self.page_size
             target_df = self.model()._data.iloc[target_index]
 
-            dialog = CustomInputDialog(self, '내용 수정', '수정할 내용을 입력하세요.', target_df[col])
+            dialog = CustomInputDialog(
+                self, '내용 수정', '수정할 내용을 입력하세요.', target_df[col])
             if dialog.exec_() == QDialog.Accepted:
                 self.on_value_edit_callback(row, col, dialog.getText())
 
@@ -326,7 +328,7 @@ class CSVTableWidget(QWidget):
     # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
     # on_value_edit_callback : def func(self, row, col, value) 를 받습니다.
     # page_size : 한 페이지에 보여주는 행 갯수
-    def __init__(self, parent, select_callback, on_value_edit_callback, page_size, lowspec_mode):
+    def __init__(self, parent, select_callback, on_value_edit_callback, on_hv_edit_callback, page_size, lowspec_mode):
         super().__init__()
         self.list_check = []
 
@@ -353,6 +355,7 @@ class CSVTableWidget(QWidget):
             parent=self,
             select_callback=select_callback,
             on_value_edit_callback=on_value_edit_callback,
+            on_hv_edit_callback=on_hv_edit_callback,
             page_size=page_size,
             lowspec_mode=lowspec_mode)
         self.layout.addWidget(self.table_view)
@@ -480,9 +483,6 @@ class CSVTableWidget(QWidget):
             return
         self.table_view.on_page_change()
 
-    def on_verticalheader_clicked(self, index):
-        print(index)
-
     def on_verticalheader_doubleclicked(self, index):
         if index in self.list_check:
             self.list_check.remove(index)
@@ -522,7 +522,7 @@ if __name__ == '__main__':
     apply_theme(app, 13)  # 테마적용
 
     table_widget = CSVTableWidget(
-        app, lambda: print("select_callback 콜"), lambda: print("on_value_edit_callback 콜"), 20, False)
+        app, lambda: print("select_callback 콜"), lambda a, b, c: print("on_value_edit_callback 콜"), lambda a, b, c: print("on_hv_edit_callback 콜"), 20, False)
 
     table_widget.set_placeholder_text("")
 

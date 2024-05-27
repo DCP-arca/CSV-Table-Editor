@@ -43,7 +43,7 @@ class DataManager:
         self.data = None
         self.cond_data = None
         self.now_conditions = []
-        self.changed_value_list = []
+        self.edited_list = []
         self.is_dbf_loaded = False
 
     def is_already_loaded(self):
@@ -146,7 +146,7 @@ class DataManager:
         # 5. 멤버 변수 초기화
         self.cond_data = self._create_copied_data()
         self.now_conditions = []
-        self.changed_value_list = []
+        self.edited_list = []
         self.is_dbf_loaded = src.endswith(".dbf")
 
         return ERRORCODE_LOAD.SUCCESS
@@ -162,7 +162,7 @@ class DataManager:
         target_df = self.cond_data.iloc[row]
         target_df[col] = value
 
-        self.changed_value_list.append([target_df.name, col, value])
+        self.edited_list.append([target_df.name, col, value])
 
     def change_condition(self, conditions):
         sel, is_success = self._create_series_by_condition(conditions)
@@ -248,7 +248,7 @@ class DataManager:
             result = result[list_target_column]
 
         # change value
-        for valueset in self.changed_value_list:
+        for valueset in self.edited_list:
             name = valueset[0]
             col = valueset[1]
             value = valueset[2]

@@ -1,12 +1,53 @@
 import requests
 from urllib.parse import quote
 
+URL_ADDR = "https://api.vworld.kr/req/address"
 URL_PNU = "https://api.vworld.kr/req/data?service=data&request=GetFeature&attrFilter=pnu:=:{pnu}&data=LP_PA_CBND_BUBUN&key={apikey}"
 URL_MAP = "https://naveropenapi.apigw.ntruss.com/map-static/v2/raster"
 
 MAPLINK_SEED1 = "https://map.kakao.com/link/search/{addr}"
 MAPLINK_SEED2 = "https://map.kakao.com/link/roadview/{y},{x}"
 MAPLINK_SEED3 = "https://map.naver.com/p/search/{addr}"
+
+ADD_PARAMS = {
+    'service': 'address',
+    'request': 'getAddress',
+    'version': '2.0',
+    'crs': 'epsg:4326',
+    'type': 'both',
+    'zipcode': 'true',
+    'simple': 'false'
+}
+
+
+def get_addr_from_epsg(apikey, epsg):
+    params = ADD_PARAMS.copy()
+
+    params['point'] = epsg[0] + "," + epsg[1]
+    params['key'] = apikey
+
+    response = requests.get(URL_ADDR, params=params)
+
+    # 응답 상태 코드 확인
+    if response.status_code == 200:
+        import json
+        j = json.loads(response.text)
+        try:
+            return j['response']['result'][0]['text']
+        except Exception as e:
+            print(f"검색 실패, {e}")
+    else:
+        print(f"API 요청 실패: {response.status_code}")
+
+    # 예외 처리 및 오류 메시지 출력
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP 에러 발생: {e}")
+    except Exception as e:
+        print(f"오류 발생: {e}")
+
+    return ""
 
 
 def get_mapinfo_from_pnu(apikey, pnu):

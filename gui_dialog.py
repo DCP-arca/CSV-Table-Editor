@@ -1,10 +1,11 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent, QPoint, QSize
 from PyQt5.QtGui import QIntValidator
 import pandas as pd
 
 from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR
+from network import get_addr_from_epsg
 
 
 # 주의! 이 txt 순서는 ENUM_SEPERATOR, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW에 영향을 받습니다.
@@ -25,6 +26,14 @@ def create_empty(minimum_width=0, minimum_height=0):
     w.setMinimumWidth(minimum_width)
     w.setMinimumHeight(minimum_height)
     return w
+
+
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
 
 
 def strtobool(val):
@@ -215,6 +224,62 @@ class LoadOptionDialog(QDialog):
         super().accept()
 
 
+class CoordDialog(QDialog):
+    def __init__(self, gui):
+        self.gui = gui
+
+        super(CoordDialog, self).__init__(parent=gui)
+
+        self.setWindowTitle("좌표로 찾기")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("X, Y를 입력하십시오"), stretch=1)
+
+        edit_hbox = QHBoxLayout()
+        layout.addLayout(edit_hbox)
+
+        label_x = QLabel("X: ")
+        edit_hbox.addWidget(label_x)
+        lineedit_x = QLineEdit(self)
+        edit_hbox.addWidget(lineedit_x)
+        label_y = QLabel("Y: ")
+        edit_hbox.addWidget(label_y)
+        lineedit_y = QLineEdit(self)
+        edit_hbox.addWidget(lineedit_y)
+
+        self.lineedit_x = lineedit_x
+        self.lineedit_y = lineedit_y
+
+        find_button = QPushButton("찾기")
+        find_button.pressed.connect(self.on_click_find_button)
+        layout.addWidget(find_button)
+
+        self.setLayout(layout)
+
+    def on_click_find_button(self):
+        x = self.lineedit_x.text()
+        y = self.lineedit_y.text()
+
+        if not is_float(x) or not is_float(y):
+            QMessageBox.information(self, '경고', "잘못된 좌표입니다.")
+            return
+
+        apikey = self.gui.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
+        epsg = [x, y]
+        if not apikey:
+            QMessageBox.information(self, '경고', "상단메뉴에서 VWorld API를 등록해주세요.")
+            return
+
+        addr = get_addr_from_epsg(apikey, epsg)
+        if not addr:
+            QMessageBox.information(self, '경고', "주소를 찾을 수 없습니다.")
+            return
+
+        self.gui.open_img({
+            "epsg": epsg,
+            "addr": addr
+        })
+
+
 class SaveOptionDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -373,6 +438,8 @@ class ImageViewerDialog(QDialog):
         super(ImageViewerDialog, self).__init__(parent=parent)
         self.setWindowTitle(
             "{title} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)".format(title=title))
+        self.move(parent.settings.value("ivd_pos", QPoint(300, 300)))
+        self.resize(parent.settings.value("ivd_size", QSize(480, 480)))
 
         class CustomImageView(QLabel):
             def __init__(self, first_src):
@@ -409,6 +476,11 @@ class ImageViewerDialog(QDialog):
         layout.addWidget(self.image_result)
         self.setLayout(layout)
 
+    def closeEvent(self, e):
+        self.parent().settings.setValue("ivd_pos", self.pos())
+        self.parent().settings.setValue("ivd_size", self.size())
+        e.accept()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -417,7 +489,7 @@ if __name__ == '__main__':
     # DEBUG_MODE = LoadOptionDialog
     # DEBUG_MODE = SaveOptionDialog
     # DEBUG_MODE = FileIODialog
-    DEBUG_MODE = ImageViewerDialog
+    DEBUG_MODE = CoordDialog
 
     if DEBUG_MODE == OptionDialog:
         from PyQt5.QtWidgets import QMainWindow
@@ -427,6 +499,17 @@ if __name__ == '__main__':
         qw = QMainWindow()
         qw.settings = QSettings(TOP_NAME, APP_NAME)
         loading_dialog = OptionDialog(qw)
+        if loading_dialog.exec_() == QDialog.Accepted:
+            print(len(loading_dialog.result))
+
+    if DEBUG_MODE == CoordDialog:
+        from PyQt5.QtWidgets import QMainWindow
+        from PyQt5.QtCore import QSettings
+        TOP_NAME = "mgj"
+        APP_NAME = "mgj_csv_label_adder"
+        qw = QMainWindow()
+        qw.settings = QSettings(TOP_NAME, APP_NAME)
+        loading_dialog = CoordDialog(qw)
         if loading_dialog.exec_() == QDialog.Accepted:
             print(len(loading_dialog.result))
 
