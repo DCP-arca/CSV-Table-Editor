@@ -138,6 +138,7 @@ class CSVTableEditor(QMainWindow):
         table_widget = CSVTableWidget(
             self,
             self.on_clicked_table,
+            self.on_value_edit_callback,
             self.settings.value(SAVE_KEY_MAP.OPTION_TABLEPAGESIZE, 20),
             strtobool(self.settings.value(
                 SAVE_KEY_MAP.OPTION_LOWSPECMODE, "False")),
@@ -245,7 +246,7 @@ class CSVTableEditor(QMainWindow):
     def open_img(self):
         # 1.epsg 체크
         if not self.mapinfo_table.epsg:
-            QMessageBox.information(self, '경고', "행을 하나 선택해주세요.")
+            QMessageBox.information(self, '경고', "주소를 확인할 수 없습니다.")
             return
         addr = self.mapinfo_table.datalist[0]
 
@@ -352,6 +353,12 @@ class CSVTableEditor(QMainWindow):
                 mapinfolist = m
                 epsglist = e
         self.mapinfo_table.set_mapinfo(mapinfolist, epsglist)
+
+    def on_value_edit_callback(self, row, col, value):
+        target_index = row + (self.table_widget.get_page() - 1) * \
+            self.table_widget.page_size
+
+        self.dm.change_value(target_index, col, value)
 
     # 검색필터를 세팅할때 호출됨 : 필터에 맞춰서 table_widget 내용을 바꿈
     def on_condition_changed(self, conditions):

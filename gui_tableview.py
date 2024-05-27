@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QTableView, QDialog, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox, QAbstractItemView, QHeaderView, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
+from PyQt5.QtWidgets import QApplication, QTableView, QDialog, QMenu, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox, QAbstractItemView, QHeaderView, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import QAbstractTableModel, Qt, pyqtSignal
 from PyQt5.QtGui import QIntValidator, QPainter, QColor, QFont
 import pandas as pd
@@ -13,6 +13,38 @@ from consts import ENUM_STR_MAP, ENUM_TABLEVIEW_SORTMODE, ENUM_TABLEVIEW_INITMOD
 
 DIALOG_GRID_WIDTH = 8
 DEFAULT_TABLEVIEW_PAGE_SIZE = 20
+
+
+class CustomInputDialog(QDialog):
+    def __init__(self, parent, title, content, text=""):
+        super().__init__(parent)
+        self.initUI(title, content, text)
+
+    def initUI(self, title, content, text):
+        self.setWindowTitle(title)
+
+        self.layout = QVBoxLayout(self)
+
+        self.label = QLabel(content, self)
+        self.layout.addWidget(self.label, stretch=1)
+
+        self.layout.addSpacing(10)
+
+        self.text_input = QLineEdit(self)
+        self.text_input.setMinimumHeight(30)
+        self.text_input.setText(text)
+        self.layout.addWidget(self.text_input, stretch=1)
+
+        self.layout.addSpacing(10)
+
+        self.button_box = QPushButton('확인', self)
+        self.button_box.clicked.connect(self.accept)
+        self.layout.addWidget(self.button_box, stretch=1)
+
+        self.setLayout(self.layout)
+
+    def getText(self):
+        return self.text_input.text()
 
 
 class ColumnSelectionDialog(QDialog):
@@ -123,12 +155,13 @@ class PandasModel(QAbstractTableModel):
 
 # 테이블뷰. 이 안에 PandasModel이 있음.
 class CSVTableView(QTableView):
-    def __init__(self, parent, select_callback, page_size, lowspec_mode):
+    def __init__(self, parent, select_callback, on_value_edit_callback, page_size, lowspec_mode):
         super(CSVTableView, self).__init__(parent)
         self.placeholder_text = ""
 
         self._parent = parent
         self.select_callback = select_callback
+        self.on_value_edit_callback = on_value_edit_callback
         self.page_size = page_size
         self.lowspec_mode = lowspec_mode
         self.setAcceptDrops(False)
@@ -136,12 +169,25 @@ class CSVTableView(QTableView):
 
         if self.lowspec_mode:
             return
+
         self.verticalHeader().setSectionsClickable(False)
         self.verticalHeader().sectionDoubleClicked.connect(
             self.parent().on_verticalheader_doubleclicked)
         self.horizontalHeader().setSectionsClickable(False)
         self.horizontalHeader().sectionDoubleClicked.connect(
             self.parent().on_horizontalheader_doubleclicked)
+
+        self.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.horizontalHeader().customContextMenuRequested.connect(
+            self.open_horizontal_context_menu)
+
+        self.verticalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.verticalHeader().customContextMenuRequested.connect(
+            self.open_vertical_context_menu)
+
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(
+            self.open_table_context_menu)
 
     def refresh_tableview_width(self):
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
@@ -216,6 +262,55 @@ class CSVTableView(QTableView):
     def set_placeholder_text(self, text):
         self.placeholder_text = text
 
+    def open_horizontal_context_menu(self, position):
+        self._handle_hv_context_menu(True, position)
+
+    def open_vertical_context_menu(self, position):
+        self._handle_hv_context_menu(False, position)
+
+    def _handle_hv_context_menu(self, is_h, position):
+        str_header = "행" if is_h else "열"
+
+        header = self.horizontalHeader() if is_h else self.verticalHeader()
+        pos = header.logicalIndexAt(position)
+        context_menu = QMenu(self)
+
+        str_menu_list = ["새로 만들기", "복제", "제거", "복사", "덮어쓰기"]
+
+        for str_menu in str_menu_list:
+            action = context_menu.addAction(str_header + " " + str_menu)
+            action.triggered.connect(
+                lambda checked, hv=is_h, p=pos, s=str_menu: self.on_hb_contextmenu_triggered(hv, p, s))
+
+        context_menu.exec_(header.viewport().mapToGlobal(position))
+
+    def open_table_context_menu(self, position):
+        indexes = self.selectedIndexes()
+        if indexes:
+            row = indexes[0].row()
+            col = indexes[0].column()
+            context_menu = QMenu(self)
+
+            action = context_menu.addAction("수정")
+
+            action.triggered.connect(
+                lambda: self.on_table_contextmenu_triggered(row, col))
+
+            context_menu.exec_(
+                self.viewport().mapToGlobal(position))
+
+    def on_hb_contextmenu_triggered(self, is_h, pos, str_menu):
+        print(is_h, pos, str_menu)
+
+    def on_table_contextmenu_triggered(self, row, col):
+        if True:  # 수정
+            target_index = row + (self.get_page()) * self.page_size
+            target_df = self.model()._data.iloc[target_index]
+
+            dialog = CustomInputDialog(self, '내용 수정', '수정할 내용을 입력하세요.', target_df[col])
+            if dialog.exec_() == QDialog.Accepted:
+                self.on_value_edit_callback(row, col, dialog.getText())
+
     def on_page_change(self):
         self.model().layoutChanged.emit()
         self.horizontalHeader().resizeSections(QHeaderView.ResizeToContents)
@@ -229,8 +324,9 @@ class CSVTableWidget(QWidget):
     on_page_refreshed = pyqtSignal()
 
     # select_callback : def func(self, cur, prev) 를 받습니다. connect를 지원하지 않아서 직접 건내줘야함
+    # on_value_edit_callback : def func(self, row, col, value) 를 받습니다.
     # page_size : 한 페이지에 보여주는 행 갯수
-    def __init__(self, parent, select_callback, page_size, lowspec_mode):
+    def __init__(self, parent, select_callback, on_value_edit_callback, page_size, lowspec_mode):
         super().__init__()
         self.list_check = []
 
@@ -254,7 +350,11 @@ class CSVTableWidget(QWidget):
         self.column_button.clicked.connect(self.open_column_selection_dialog)
 
         self.table_view = CSVTableView(
-            self, select_callback, page_size, lowspec_mode)
+            parent=self,
+            select_callback=select_callback,
+            on_value_edit_callback=on_value_edit_callback,
+            page_size=page_size,
+            lowspec_mode=lowspec_mode)
         self.layout.addWidget(self.table_view)
 
         self.lower_button_layout = QHBoxLayout()
@@ -304,7 +404,8 @@ class CSVTableWidget(QWidget):
                 self.table_view.set_data(data)
             elif mode == ENUM_TABLEVIEW_INITMODE.CONDITION:
                 self.table_view.set_data(data)
-                self.table_view.set_sort_indicator(0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
+                self.table_view.set_sort_indicator(
+                    0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
                 self.now_sort = []
 
             self.init_page()
@@ -379,6 +480,9 @@ class CSVTableWidget(QWidget):
             return
         self.table_view.on_page_change()
 
+    def on_verticalheader_clicked(self, index):
+        print(index)
+
     def on_verticalheader_doubleclicked(self, index):
         if index in self.list_check:
             self.list_check.remove(index)
@@ -413,15 +517,17 @@ class CSVTableWidget(QWidget):
 
 
 if __name__ == '__main__':
+    from theme import apply_theme
     app = QApplication(sys.argv)
+    apply_theme(app, 13)  # 테마적용
 
     table_widget = CSVTableWidget(
-        app, lambda: print("select_callback 콜"), 20, True)
+        app, lambda: print("select_callback 콜"), lambda: print("on_value_edit_callback 콜"), 20, False)
 
     table_widget.set_placeholder_text("")
 
     table_widget.set_data(pd.read_csv(
-        "test.csv", encoding="euc-kr", sep="|", dtype=object), 0)
+        "test_datas/test.csv", encoding="euc-kr", sep="|", dtype=object), 0)
 
     table_widget.show()
     sys.exit(app.exec_())

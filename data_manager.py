@@ -43,6 +43,7 @@ class DataManager:
         self.data = None
         self.cond_data = None
         self.now_conditions = []
+        self.changed_value_list = []
         self.is_dbf_loaded = False
 
     def is_already_loaded(self):
@@ -145,6 +146,7 @@ class DataManager:
         # 5. 멤버 변수 초기화
         self.cond_data = self._create_copied_data()
         self.now_conditions = []
+        self.changed_value_list = []
         self.is_dbf_loaded = src.endswith(".dbf")
 
         return ERRORCODE_LOAD.SUCCESS
@@ -155,6 +157,12 @@ class DataManager:
         copied_data.fillna(np.nan, inplace=True)
 
         return copied_data
+
+    def change_value(self, row, col, value):
+        target_df = self.cond_data.iloc[row]
+        target_df[col] = value
+
+        self.changed_value_list.append([target_df.name, col, value])
 
     def change_condition(self, conditions):
         sel, is_success = self._create_series_by_condition(conditions)
@@ -238,6 +246,14 @@ class DataManager:
         # option 3. 열(라벨) 거르기
         if list_target_column:
             result = result[list_target_column]
+
+        # change value
+        for valueset in self.changed_value_list:
+            name = valueset[0]
+            col = valueset[1]
+            value = valueset[2]
+            if name in result.index:
+                result.loc[name][col] = value
 
         if self.is_dbf_loaded:
             # TODO write dbf
