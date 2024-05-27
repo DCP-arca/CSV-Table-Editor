@@ -176,17 +176,22 @@ class DataManager:
         self.cond_data.iloc[row] = target_df
 
         self.edited_list.append(
-            [DataEditType.EDIT_VALUE, [col, value]])
+            [DataEditType.EDIT_VALUE, [row, col, value]])
 
     def change_hv(self, edit_type: DataEditType, args):
-        df = self.cond_data
+        self.cond_data = self._change_hv_func(self.cond_data, edit_type, args)
 
+        self.edited_list.append([edit_type, args])
+
+    # it's static
+    # 변경 사항이 있으면 달라진 df를 return한다. 그 이외의 경우, 그대로 return 한다.
+    def _change_hv_func(__self, df, edit_type, args):
         if edit_type == DataEditType.ADD_COLUMN:
             df.insert(args[0], args[1], "")
         elif edit_type == DataEditType.ADD_ROW:
             new_row = pd.Series([""] * df.shape[1], index=df.columns)
             insert_index = args[0]
-            self.cond_data = pd.concat([df.iloc[:insert_index], pd.DataFrame(
+            df = pd.concat([df.iloc[:insert_index], pd.DataFrame(
                 [new_row]), df.iloc[insert_index:]]).reset_index(drop=True)
         elif edit_type == DataEditType.DUPLICATE_COLUMN:
             col_name = df.columns[args[0]]
@@ -197,7 +202,7 @@ class DataManager:
         elif edit_type == DataEditType.DUPLICATE_ROW:
             duplicated_row = df.iloc[args[0]].copy()  # 지정한 행을 복제
             insert_index = args[0]
-            self.cond_data = pd.concat([df.iloc[:insert_index], pd.DataFrame(
+            df = pd.concat([df.iloc[:insert_index], pd.DataFrame(
                 [duplicated_row]), df.iloc[insert_index:]]).reset_index(drop=True)
         elif edit_type == DataEditType.REMOVE_COLUMN:
             col_name = df.columns[args[0]]
@@ -224,7 +229,7 @@ class DataManager:
             for i in range(len(value_list), len(df.columns)):
                 df.at[target_index, i] = ""
 
-        self.edited_list.append([edit_type, args])
+        return df
 
     def change_condition(self, conditions):
         sel, is_success = self._create_series_by_condition(conditions)
@@ -280,42 +285,49 @@ class DataManager:
     # now_conditions을 기반으로 select를 붙이고 dst를 내보냄
     # 체크모드가 아니라면 cond_data를 직접 내보내지 마시오. sort에 영향을 받음.
     def export(self, dst, sep_mode, list_target_column, select_mode, list_checked):
+        result = self.data.copy(deep=True)
+
+        # change value
+        for value_list in self.edited_list:
+            detype = value_list[0]
+            args = value_list[1]
+
+            if detype == DataEditType.EDIT_VALUE:
+                row = args[0]
+                col = args[1]
+                value = args[2]
+
+                target_df = result.iloc[row].copy()
+                target_df[col] = value
+                result.iloc[row] = target_df
+            else:
+                result = self._change_hv_func(result, detype, args)
+
         # option 1. 분리자 설정
         sep = "," if sep_mode == ENUM_SEPERATOR.COMMA else "|"
 
         # option 2. 행 거르기 or select 추가하기
         if select_mode == ENUM_SAVE_ROW.ALL:
-            result = self.data.copy(deep=True)
+            pass
         elif select_mode == ENUM_SAVE_ROW.FILTERED:
-            result = self.data.copy(deep=True)
             sel, _ = self._create_series_by_condition(self.now_conditions)
             result = result[sel]
         elif select_mode == ENUM_SAVE_ROW.FILTERED_SELECT:
-            result = self.data.copy(deep=True)
             sel, _ = self._create_series_by_condition(self.now_conditions)
             result["select"] = pd.Series(sel).astype(int)
         elif select_mode == ENUM_SAVE_ROW.CHECKED:
             list_checked_df = []
             for index in list_checked:
-                list_checked_df.append(self.cond_data.iloc[index])
+                list_checked_df.append(result.iloc[index])
             result = pd.concat(list_checked_df)
         elif select_mode == ENUM_SAVE_ROW.CHECKED_SELECT:
-            result = self.cond_data.copy(deep=True)
-            sel = pd.Series([False] * len(self.cond_data))
+            sel = pd.Series([False] * len(result))
             sel.iloc[list_checked] = True
             result["select"] = pd.Series(sel).astype(int)
 
         # option 3. 열(라벨) 거르기
         if list_target_column:
             result = result[list_target_column]
-
-        # change value
-        for valueset in self.edited_list:
-            name = valueset[0]
-            col = valueset[1]
-            value = valueset[2]
-            if name in result.index:
-                result.loc[name][col] = value
 
         if self.is_dbf_loaded:
             # TODO write dbf
