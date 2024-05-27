@@ -379,6 +379,11 @@ class CSVTableEditor(QMainWindow):
         self.refresh_tables(row)
 
     def on_hv_edit_callback(self, is_h, pos, str_menu):
+        if True:  # TODO : NOT YET
+            QMessageBox.information(self, '경고', "행 및 열 함수는 구현 중입니다.")
+
+            return
+
         if not is_h:
             pos = pos + (self.table_widget.get_page() - 1) * \
                 self.table_widget.page_size
