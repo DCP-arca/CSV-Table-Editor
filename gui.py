@@ -438,7 +438,7 @@ class CSVTableEditor(QMainWindow):
                 self.table_widget.set_data(
                     self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.EDIT)
 
-                if edit_type == DataEditType.REMOVE_ROW:
+                if edit_type == DataEditType.REMOVE_ROW or edit_type == DataEditType.REMOVE_COLUMN:
                     self.refresh_tables(row - 1)
                 else:
                     self.refresh_tables(row)

@@ -1,4 +1,5 @@
 import sys
+import math
 from PyQt5.QtWidgets import QApplication, QTableView, QDialog, QMenu, QCheckBox, QDialogButtonBox, QGridLayout, QMessageBox, QAbstractItemView, QHeaderView, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import QAbstractTableModel, Qt, pyqtSignal
 from PyQt5.QtGui import QIntValidator, QPainter, QColor, QFont
@@ -179,7 +180,7 @@ class CSVTableView(QTableView):
 
     def get_maxpage(self):
         model = self.model()
-        return int(len(model._data) / model._page_size) + 1
+        return math.ceil(len(model._data) / model._page_size)
 
     def next_page(self):
         model = self.model()
@@ -381,15 +382,17 @@ class CSVTableWidget(QWidget):
                     0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
                 self.now_sort = []
 
+            # EDITNEEDED : EDIT 모드를 위해 저장함
             before_page = self.get_page()
 
             self.init_page()
 
+            # EDITNEEDED : page init 하면 1페이지로 돌아가기 때문에, 다시 기존에 있었던 page로 이동한다.
             if mode == ENUM_TABLEVIEW_INITMODE.EDIT:
-                max_pag = self.table_view.get_maxpage()
-                if before_page <= max_pag:
-                    self.page_label.setText(str(before_page))
-                    self.goto_page()
+                max_page = self.table_view.get_maxpage()
+                page = before_page if before_page <= max_page else max_page
+                self.page_label.setText(str(page))
+                self.goto_page()
 
     # this function must be called after table_view.set_data
 
