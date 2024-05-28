@@ -263,21 +263,18 @@ class CSVTableEditor(QMainWindow):
             addr = info_dict["addr"]
 
         # 2. id / secret 체크
-        client_id = self.settings.value(SAVE_KEY_MAP.OPTION_CLIENTID, "")
-        client_secret = self.settings.value(
-            SAVE_KEY_MAP.OPTION_CLIENTSECRET, "")
-        if not client_id or not client_secret:
+        api_key = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
+        if not api_key:
             QMessageBox.information(
-                self, '경고', "Naver Cloud Client 값을 설정해주세요.")
+                self, '경고', "옵션에서 브이월드 API Key를 설정해주세요.")
             return
 
         # 3. 이미지 얻어오기, content로 뱉어줌.
-        is_success, content = get_map_img(
-            client_id, client_secret,
-            self.mapinfo_table.epsg if not info_dict else info_dict['epsg'])
+        epsg = self.mapinfo_table.epsg if not info_dict else info_dict['epsg']
+        is_success, content = get_map_img(api_key, epsg)
         if not is_success:
             QMessageBox.information(
-                self, '경고', "Naver Cloud에 접속하는데 실패했습니다.\n\n" + str(content))
+                self, '경고', "브이월드에 접속하는데 실패했습니다.\n\n" + str(content))
             return
 
         # 4. image_data -> pixmap 전환

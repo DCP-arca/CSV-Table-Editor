@@ -382,12 +382,12 @@ class CSVTableWidget(QWidget):
                     0, ENUM_TABLEVIEW_SORTMODE.ORIGINAL)
                 self.now_sort = []
 
-            # EDITNEEDED : EDIT 모드를 위해 저장함
+            # NEEDTOEDIT : EDIT 모드를 위해 저장함
             before_page = self.get_page()
 
             self.init_page()
 
-            # EDITNEEDED : page init 하면 1페이지로 돌아가기 때문에, 다시 기존에 있었던 page로 이동한다.
+            # NEEDTOEDIT : page init 하면 1페이지로 돌아가기 때문에, 다시 기존에 있었던 page로 이동한다.
             if mode == ENUM_TABLEVIEW_INITMODE.EDIT:
                 max_page = self.table_view.get_maxpage()
                 page = before_page if before_page <= max_page else max_page

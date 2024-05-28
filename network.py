@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 URL_ADDR = "https://api.vworld.kr/req/address"
 URL_PNU = "https://api.vworld.kr/req/data?service=data&request=GetFeature&attrFilter=pnu:=:{pnu}&data=LP_PA_CBND_BUBUN&key={apikey}"
-URL_MAP = "https://naveropenapi.apigw.ntruss.com/map-static/v2/raster"
+URL_MAP = "https://api.vworld.kr/req/image"
 
 MAPLINK_SEED1 = "https://map.kakao.com/link/search/{addr}"
 MAPLINK_SEED2 = "https://map.kakao.com/link/roadview/{y},{x}"
@@ -71,42 +71,25 @@ def get_mapinfo_from_pnu(apikey, pnu):
     return [addr, maplink1, maplink2, maplink3], [str(x), str(y)]
 
 
-###
-# 로그인 ::: https://www.ncloud.com/product/applicationService/maps
-# API ::: https://api.ncloud-docs.com/docs/ai-naver-mapsstaticmap-raster
-###
-def get_map_img(c_id, c_sec, epsg):
-    lon, lat = epsg[0], epsg[1]
+def get_map_img(api_key, epsg, zoom=18, width=1024, height=1024, basemap="PHOTO_HYBRID"):
+    x = epsg[0]
+    y = epsg[1]
 
-    # 좌표 (경도, 위도)
-    headers = {
-        "X-NCP-APIGW-API-KEY-ID": c_id,
-        "X-NCP-APIGW-API-KEY": c_sec,
+    zoom = min(max(zoom, 6), 18)
+
+    params = {
+        "service": "image",
+        "request": "getmap",
+        "key": api_key,
+        "format": "png",
+        "basemap": basemap,
+        "center": f"{x},{y}",
+        "zoom": zoom,
+        "size": f"{width},{height}",
+        "marker": f"point:{x} {y}|image:img09"
     }
-    # 중심 좌표
-    _center = f"{lon},{lat}"
-    # 줌 레벨 - 0 ~ 20
-    _level = 16
-    # 가로 세로 크기 (픽셀)
-    _w, _h = 700, 500
-    # 지도 유형 - basic, traffic, satellite, satellite_base, terrain
-    _maptype = "satellite"
-    # 반환 이미지 형식 - jpg, jpeg, png8, png
-    _format = "png"
-    # 고해상도 디스펠레이 지원을 위한 옵션 - 1, 2
-    _scale = 1
-    # 마커
-    _markers = f"""type:d|size:small|pos:{lon} {lat}|color:yellow"""
-    # 라벨 언어 설정 - ko, en, ja, zh
-    _lang = "ko"
-    # 대중교통 정보 노출 - Boolean
-    _public_transit = True
-    # 서비스에서 사용할 데이터 버전 파라미터 전달 CDN 캐시 무효화
-    _dataversion = ""
 
-    # URL
-    url = f"{URL_MAP}?center={_center}&level={_level}&w={_w}&h={_h}&maptype={_maptype}&format={_format}&scale={_scale}&markers={_markers}&lang={_lang}&public_transit={_public_transit}&dataversion={_dataversion}"
-    res = requests.get(url, headers=headers)
+    res = requests.get(URL_MAP, params=params)
 
     return res.status_code == 200, res.content
 
@@ -115,14 +98,11 @@ if __name__ == '__main__':
     apikey = ""
     pnu = "4377034032102800000"
 
-    client_id = ""
-    client_secret = ""
-
     l, b = get_mapinfo_from_pnu(apikey, pnu)
     if not b:
         print("error")
     else:
-        iss, pm = get_map_img(client_id, client_secret, b)
+        iss, pm = get_static_map(apikey, b)
 
         print(l, b)
         print(iss)
