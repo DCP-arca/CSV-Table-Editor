@@ -1,13 +1,13 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QComboBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QSlider, QComboBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent, QPoint, QSize
-from PyQt5.QtGui import QIntValidator
+from PyQt5.QtGui import QIntValidator, QPixmap
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 
-from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, CONST_COORDSYS_STRMAP
-from network import get_addr_from_epsg
+from consts import SAVE_KEY_MAP, ENUM_LOAD_MODE, ENUM_SEPERATOR, CONST_COORDSYS_STRMAP, ENUM_STATICMAP_BASEMAP
+from network import get_addr_from_epsg, get_map_img
 
 
 def transform_to_epsg4326(x, y, epsg):
@@ -272,7 +272,7 @@ class CoordDialog(QDialog):
         self.lineedit_y = lineedit_y
 
         find_button = QPushButton("찾기")
-        find_button.pressed.connect(self.on_click_find_button)
+        find_button.clicked.connect(self.on_click_find_button)
         layout.addWidget(find_button)
 
         self.setLayout(layout)
@@ -491,48 +491,148 @@ class FileIODialog(QDialog):
         self.accept()
 
 
+# addr, epsg를 주면 알아서 기존 세팅과 api_key를 때마다 받아와 요청한다.
 class ImageViewerDialog(QDialog):
-    def __init__(self, parent, title, pixmap):
+    def __init__(self, parent, addr, epsg):
         super(ImageViewerDialog, self).__init__(parent=parent)
+
+        self.epsg = epsg
+
         self.setWindowTitle(
-            "{title} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)".format(title=title))
+            f"{addr} (정확한 위치가 아닐 수 있습니다. 이 창은 독립적입니다.)")
         self.move(parent.settings.value("ivd_pos", QPoint(300, 300)))
         self.resize(parent.settings.value("ivd_size", QSize(480, 480)))
 
-        class CustomImageView(QLabel):
-            def __init__(self, first_src):
-                super(CustomImageView, self).__init__()
-                self.set_custom_pixmap(first_src)
-
-            def set_custom_pixmap(self, img_obj):
-                self.pixmap = img_obj
-                self.refresh_size()
-
-            def refresh_size(self):
-                self.setPixmap(self.pixmap.scaled(
-                    self.width(), self.height(),
-                    aspectRatioMode=Qt.KeepAspectRatio,
-                    transformMode=Qt.SmoothTransformation))
-                self.setMinimumWidth(100)
-
-            def eventFilter(self, obj, event):
-                if event.type() == QEvent.Resize:
-                    self.refresh_size()
-                    return True
-                return super(CustomImageView, self).eventFilter(obj, event)
-
-        image_result = CustomImageView(pixmap)
-        image_result.setAlignment(Qt.AlignCenter)
-        image_result.setStyleSheet("""
-            background-position: center
-        """)
-        self.installEventFilter(image_result)
-        self.image_result = image_result
-
-        # 레이아웃 설정
+        ### main layout
         layout = QVBoxLayout()
-        layout.addWidget(self.image_result)
         self.setLayout(layout)
+
+        ## image
+        self.image_result = ImageViewerDialog.CustomImageView()
+        self.installEventFilter(self.image_result)
+        layout.addWidget(self.image_result)
+
+        ## options
+        # Get Values
+        ivd_zoom = self.parent().settings.value(SAVE_KEY_MAP.IVD_ZOOM, 18)
+        ivd_width = self.parent().settings.value(SAVE_KEY_MAP.IVD_WIDTH, 1024)
+        ivd_height = self.parent().settings.value(SAVE_KEY_MAP.IVD_HEIGHT, 1024)
+        ivd_basemap = self.parent().settings.value(SAVE_KEY_MAP.IVD_BASEMAP, ENUM_STATICMAP_BASEMAP.PHOTO_HYBRID)
+
+        # Option layout
+        option_layout = QHBoxLayout()
+        layout.addLayout(option_layout)
+
+        # Zoom
+        self.zoom_label = QLabel("줌: 18")
+        self.zoom_slider = QSlider(Qt.Horizontal)
+        self.zoom_slider.setMinimum(6)
+        self.zoom_slider.setMaximum(18)
+        self.zoom_slider.setValue(ivd_zoom)
+        self.zoom_slider.valueChanged.connect(self.update_zoom_label)
+        option_layout.addWidget(self.zoom_label)
+        option_layout.addWidget(self.zoom_slider)
+
+        # Width
+        self.width_label = QLabel("너비:")
+        self.width_edit = QLineEdit(str(ivd_width))
+        self.width_edit.setValidator(QIntValidator(0, 1024))
+        option_layout.addWidget(self.width_label)
+        option_layout.addWidget(self.width_edit)
+
+        # Height
+        self.height_label = QLabel("높이:")
+        self.height_edit = QLineEdit(str(ivd_height))
+        self.height_edit.setValidator(QIntValidator(0, 1024))
+        option_layout.addWidget(self.height_label)
+        option_layout.addWidget(self.height_edit)
+
+        # Basemap
+        self.basemap_label = QLabel("종류:")
+        self.basemap_combo = QComboBox()
+        self.basemap_combo.addItems(list(ENUM_STATICMAP_BASEMAP))
+        self.basemap_combo.setCurrentText(ivd_basemap)
+        option_layout.addWidget(self.basemap_label)
+        option_layout.addWidget(self.basemap_combo)
+
+        # Ok Button
+        self.refresh_button = QPushButton("반영")
+        self.refresh_button.clicked.connect(self.refresh_img)
+        option_layout.addWidget(self.refresh_button)
+
+        self.refresh_img()
+
+    class CustomImageView(QLabel):
+        def __init__(self):
+            super(ImageViewerDialog.CustomImageView, self).__init__()
+            self.setAlignment(Qt.AlignCenter)
+            self.setStyleSheet("""
+                background-position: center
+            """)
+
+        def set_custom_pixmap(self, img_obj):
+            self.pixmap = img_obj
+            self.refresh_size()
+
+        def refresh_size(self):
+            self.setPixmap(self.pixmap.scaled(
+                self.width(), self.height(),
+                aspectRatioMode=Qt.KeepAspectRatio,
+                transformMode=Qt.SmoothTransformation))
+            self.setMinimumWidth(100)
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Resize:
+                self.refresh_size()
+                return True
+            return super(ImageViewerDialog.CustomImageView, self).eventFilter(obj, event)
+
+    def refresh_img(self):
+        # 0. 옵션 가져오기
+        ivd_zoom = self.zoom_slider.value()
+        ivd_width = self.width_edit.text()
+        ivd_height = self.height_edit.text()
+        ivd_basemap = self.basemap_combo.currentText()
+
+        # 1. id / secret 체크
+        api_key = self.parent().settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
+        if not api_key:
+            QMessageBox.information(
+                self, '경고', "옵션에서 브이월드 API Key를 설정해주세요.")
+            self.reject()
+            return
+
+        # 2. 접속
+        is_success, content = get_map_img(api_key, self.epsg, ivd_zoom, ivd_width, ivd_height, ivd_basemap)
+        if not is_success:
+            QMessageBox.information(
+                self, '경고', "브이월드에 접속하는데 실패했습니다.\n\n" + str(content))
+            self.reject()
+            return
+
+        # 3. image_data -> pixmap 전환
+        try:
+            pixmap = QPixmap()
+            pixmap.loadFromData(content)
+            self.image_result.set_custom_pixmap(pixmap)
+        except Exception as e:
+            QMessageBox.information(
+                self, '경고', "이미지를 변환하는데 실패했습니다.\n\n" + str(e))
+            self.reject()
+            return
+
+        # 4. 설정 저장
+        self.parent().settings.setValue(SAVE_KEY_MAP.IVD_ZOOM, ivd_zoom)
+        self.parent().settings.setValue(SAVE_KEY_MAP.IVD_WIDTH, ivd_width)
+        self.parent().settings.setValue(SAVE_KEY_MAP.IVD_HEIGHT, ivd_height)
+        self.parent().settings.setValue(SAVE_KEY_MAP.IVD_BASEMAP, ivd_basemap)
+
+    def update_zoom_label(self, value):
+        if int(value) > 18 or int(value) < 6:
+            QMessageBox.information(
+                self, '경고', "zoom은 6이상 18이하여야합니다.")
+            return
+        self.zoom_label.setText(f"줌: {value}")
 
     def closeEvent(self, e):
         self.parent().settings.setValue("ivd_pos", self.pos())

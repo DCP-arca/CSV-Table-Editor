@@ -13,7 +13,7 @@ from gui_infotable import InfoTable
 from gui_mapinfotable import MapInfoTable
 from gui_search import SearchWidget
 from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, ImageViewerDialog, FuncLoadingDialog, CoordDialog, SimpleInputDialog
-from network import get_mapinfo_from_pnu, get_map_img
+from network import get_mapinfo_from_pnu
 from clipboard import clipboard_copy_csvte_info, clipboard_paste_csvte_info
 from theme import apply_theme
 
@@ -180,16 +180,16 @@ class CSVTableEditor(QMainWindow):
         layout_right.addLayout(buttons_layout)
 
         openimg_button = QPushButton("사진열기")  # 첫인자가 텍스트임.
-        openimg_button.pressed.connect(self.open_img)  # pressed 콜백에 함수를 묶고 있음.
+        openimg_button.clicked.connect(self.open_img)  # clicked 콜백에 함수를 묶고 있음.
         openimg_button.setEnabled(False)  # 처음 실행시에는 꺼놓음.
         self.openimg_button = openimg_button
         buttons_layout.addWidget(openimg_button)
         load_button = QPushButton("불러오기")
-        load_button.pressed.connect(self.start_load)
+        load_button.clicked.connect(self.start_load)
         buttons_layout.addWidget(load_button)
         export_button = QPushButton("내보내기")
         export_button.setEnabled(False)
-        export_button.pressed.connect(self.show_save_dialog)
+        export_button.clicked.connect(self.show_save_dialog)
         self.export_button = export_button
         buttons_layout.addWidget(export_button)
 
@@ -253,43 +253,19 @@ class CSVTableEditor(QMainWindow):
             QMessageBox.information(self, '불러오기 실패', error_message)
 
     def open_img(self, info_dict={}):
-        # 1.epsg 체크
         if not info_dict:
             if not self.mapinfo_table.epsg:
                 QMessageBox.information(self, '경고', "주소를 확인할 수 없습니다.")
                 return
-            addr = self.mapinfo_table.datalist[0]
-        else:
-            addr = info_dict["addr"]
+            info_dict = {
+                "addr": self.mapinfo_table.datalist[0],
+                "epsg": self.mapinfo_table.epsg
+            }
 
-        # 2. id / secret 체크
-        api_key = self.settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
-        if not api_key:
-            QMessageBox.information(
-                self, '경고', "옵션에서 브이월드 API Key를 설정해주세요.")
-            return
-
-        # 3. 이미지 얻어오기, content로 뱉어줌.
+        addr = info_dict["addr"]
         epsg = self.mapinfo_table.epsg if not info_dict else info_dict['epsg']
-        is_success, content = get_map_img(api_key, epsg)
-        if not is_success:
-            QMessageBox.information(
-                self, '경고', "브이월드에 접속하는데 실패했습니다.\n\n" + str(content))
-            return
 
-        # 4. image_data -> pixmap 전환
-        try:
-            # image_data = io.BytesIO(content)
-            # image = Image.open(image_data)
-            # pixmap = pil2pixmap(image)
-            pixmap = QPixmap()
-            pixmap.loadFromData(content)
-
-        except Exception as e:
-            QMessageBox.information(
-                self, '경고', "이미지를 변환하는데 실패했습니다.\n\n" + str(e))
-
-        ImageViewerDialog(self, addr, pixmap).show()
+        ImageViewerDialog(self, addr, epsg).show()
 
     def show_save_dialog(self):
         dialog = SaveOptionDialog()

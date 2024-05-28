@@ -46,10 +46,10 @@ class ColumnSelectionDialog(QDialog):
         checkbuttons_layout = QHBoxLayout()
         button_layout.addLayout(checkbuttons_layout)
         button_allcheck = QPushButton("모두 선택")
-        button_allcheck.pressed.connect(self.check_all)
+        button_allcheck.clicked.connect(self.check_all)
         checkbuttons_layout.addWidget(button_allcheck)
         button_alluncheck = QPushButton("모두 해제")
-        button_alluncheck.pressed.connect(self.uncheck_all)
+        button_alluncheck.clicked.connect(self.uncheck_all)
         checkbuttons_layout.addWidget(button_alluncheck)
 
         button_box = QDialogButtonBox(
