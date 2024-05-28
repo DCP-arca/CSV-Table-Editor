@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMessageBox, QSlider, QComboBox, QHBoxLayout, QVBoxLayout, QGroupBox, QCheckBox, QRadioButton, QDialogButtonBox, QFileDialog, QLabel, QLineEdit, QPushButton
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent, QPoint, QSize
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent, QPoint, QSize, QTimer
 from PyQt5.QtGui import QIntValidator, QPixmap
 import pandas as pd
 import geopandas as gpd
@@ -96,10 +96,6 @@ class OptionDialog(QDialog):
 
         self.le_apikey = create_lineedit_key(
             'VWorld API 키 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_APIKEY)
-        self.le_naver_id = create_lineedit_key(
-            'Naver Cloud Client ID 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_CLIENTID)
-        self.le_naver_secret = create_lineedit_key(
-            'Naver Cloud Client Secret 입력:', "API 키를 입력해주세요.", SAVE_KEY_MAP.OPTION_CLIENTSECRET)
 
         layout.addStretch(1)
 
@@ -159,10 +155,6 @@ class OptionDialog(QDialog):
     def on_click_close_button(self):
         self.parent.settings.setValue(
             SAVE_KEY_MAP.OPTION_APIKEY, self.le_apikey.text())
-        self.parent.settings.setValue(
-            SAVE_KEY_MAP.OPTION_CLIENTID, self.le_naver_id.text())
-        self.parent.settings.setValue(
-            SAVE_KEY_MAP.OPTION_CLIENTSECRET, self.le_naver_secret.text())
         self.parent.settings.setValue(
             SAVE_KEY_MAP.OPTION_FONTSIZE, int(self.lineedit_font.text()))
         self.parent.settings.setValue(
@@ -503,21 +495,22 @@ class ImageViewerDialog(QDialog):
         self.move(parent.settings.value("ivd_pos", QPoint(300, 300)))
         self.resize(parent.settings.value("ivd_size", QSize(480, 480)))
 
-        ### main layout
+        # main layout
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        ## image
+        # image
         self.image_result = ImageViewerDialog.CustomImageView()
         self.installEventFilter(self.image_result)
         layout.addWidget(self.image_result)
 
-        ## options
+        # options
         # Get Values
         ivd_zoom = self.parent().settings.value(SAVE_KEY_MAP.IVD_ZOOM, 18)
         ivd_width = self.parent().settings.value(SAVE_KEY_MAP.IVD_WIDTH, 1024)
         ivd_height = self.parent().settings.value(SAVE_KEY_MAP.IVD_HEIGHT, 1024)
-        ivd_basemap = self.parent().settings.value(SAVE_KEY_MAP.IVD_BASEMAP, ENUM_STATICMAP_BASEMAP.PHOTO_HYBRID)
+        ivd_basemap = self.parent().settings.value(
+            SAVE_KEY_MAP.IVD_BASEMAP, ENUM_STATICMAP_BASEMAP.PHOTO_HYBRID)
 
         # Option layout
         option_layout = QHBoxLayout()
@@ -537,6 +530,7 @@ class ImageViewerDialog(QDialog):
         self.width_label = QLabel("너비:")
         self.width_edit = QLineEdit(str(ivd_width))
         self.width_edit.setValidator(QIntValidator(0, 1024))
+        self.width_edit.textChanged.connect(self.update_width_edit)
         option_layout.addWidget(self.width_label)
         option_layout.addWidget(self.width_edit)
 
@@ -544,6 +538,7 @@ class ImageViewerDialog(QDialog):
         self.height_label = QLabel("높이:")
         self.height_edit = QLineEdit(str(ivd_height))
         self.height_edit.setValidator(QIntValidator(0, 1024))
+        self.height_edit.textChanged.connect(self.update_height_edit)
         option_layout.addWidget(self.height_label)
         option_layout.addWidget(self.height_edit)
 
@@ -564,6 +559,8 @@ class ImageViewerDialog(QDialog):
 
     class CustomImageView(QLabel):
         def __init__(self):
+            self.is_inited = False
+
             super(ImageViewerDialog.CustomImageView, self).__init__()
             self.setAlignment(Qt.AlignCenter)
             self.setStyleSheet("""
@@ -571,15 +568,17 @@ class ImageViewerDialog(QDialog):
             """)
 
         def set_custom_pixmap(self, img_obj):
+            self.is_inited = True
             self.pixmap = img_obj
             self.refresh_size()
 
         def refresh_size(self):
-            self.setPixmap(self.pixmap.scaled(
-                self.width(), self.height(),
-                aspectRatioMode=Qt.KeepAspectRatio,
-                transformMode=Qt.SmoothTransformation))
-            self.setMinimumWidth(100)
+            if self.is_inited:
+                self.setPixmap(self.pixmap.scaled(
+                    self.width(), self.height(),
+                    aspectRatioMode=Qt.KeepAspectRatio,
+                    transformMode=Qt.SmoothTransformation))
+                self.setMinimumWidth(100)
 
         def eventFilter(self, obj, event):
             if event.type() == QEvent.Resize:
@@ -594,20 +593,30 @@ class ImageViewerDialog(QDialog):
         ivd_height = self.height_edit.text()
         ivd_basemap = self.basemap_combo.currentText()
 
+        if not ivd_width:
+            self.width_edit.setText("1024")
+            ivd_width = 1024
+
+        if not ivd_height:
+            self.height_edit.setText("1024")
+            ivd_height = 1024
+
         # 1. id / secret 체크
         api_key = self.parent().settings.value(SAVE_KEY_MAP.OPTION_APIKEY, "")
         if not api_key:
             QMessageBox.information(
                 self, '경고', "옵션에서 브이월드 API Key를 설정해주세요.")
-            self.reject()
+
+            self.reserve_close()
             return
 
         # 2. 접속
-        is_success, content = get_map_img(api_key, self.epsg, ivd_zoom, ivd_width, ivd_height, ivd_basemap)
+        is_success, content = get_map_img(
+            api_key, self.epsg, ivd_zoom, ivd_width, ivd_height, ivd_basemap)
         if not is_success:
             QMessageBox.information(
                 self, '경고', "브이월드에 접속하는데 실패했습니다.\n\n" + str(content))
-            self.reject()
+            self.reserve_close()
             return
 
         # 3. image_data -> pixmap 전환
@@ -618,7 +627,7 @@ class ImageViewerDialog(QDialog):
         except Exception as e:
             QMessageBox.information(
                 self, '경고', "이미지를 변환하는데 실패했습니다.\n\n" + str(e))
-            self.reject()
+            self.reserve_close()
             return
 
         # 4. 설정 저장
@@ -633,6 +642,21 @@ class ImageViewerDialog(QDialog):
                 self, '경고', "zoom은 6이상 18이하여야합니다.")
             return
         self.zoom_label.setText(f"줌: {value}")
+
+    def update_width_edit(self, value):
+        if value and not (0 <= int(value) <= 1024):
+            QMessageBox.information(
+                self, '경고', "너비는 0 이상 1024 이하여야합니다.")
+            self.width_edit.setText("1024")
+
+    def update_height_edit(self, value):
+        if value and not (0 <= int(value) <= 1024):
+            QMessageBox.information(
+                self, '경고', "높이는 0 이상 1024 이하여야합니다.")
+            self.height_edit.setText("1024")
+
+    def reserve_close(self):
+        QTimer.singleShot(100, self.close)
 
     def closeEvent(self, e):
         self.parent().settings.setValue("ivd_pos", self.pos())

@@ -91,7 +91,7 @@ def get_map_img(api_key, epsg, zoom=18, width=1024, height=1024, basemap="PHOTO_
 
     res = requests.get(URL_MAP, params=params)
 
-    return res.status_code == 200, res.content
+    return not ("error" in res.text), res.content
 
 
 if __name__ == '__main__':
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     if not b:
         print("error")
     else:
-        iss, pm = get_static_map(apikey, b)
+        iss, pm = get_map_img(apikey, b)
 
         print(l, b)
         print(iss)
