@@ -437,7 +437,11 @@ class CSVTableEditor(QMainWindow):
                 self.dm.change_hv(edit_type, args)
                 self.table_widget.set_data(
                     self.dm.cond_data, ENUM_TABLEVIEW_INITMODE.EDIT)
-                self.refresh_tables(row)
+
+                if edit_type == DataEditType.REMOVE_ROW:
+                    self.refresh_tables(row - 1)
+                else:
+                    self.refresh_tables(row)
 
                 if not str_menu == ENUM_TABLEVIEW_HVFUNC.PASTE:
                     self.hv_copy_mode = False
