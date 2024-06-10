@@ -101,6 +101,13 @@ SAVE_KEY_MAP = DotMap(
     IVD_BASEMAP="IVD_BASEMAP",
 )
 
+CONST_NETWORK_APISTRMAP = {
+    "개별공시지가속성조회":"getIndvdLandPriceAttr",
+    "개별주택가격정보조회":"getIndvdHousingPriceAttr",
+    "토지소유정보속성조회":"getPossessionAttr",
+    "토지이동이력속성조회":"getLandMoveAttr",
+}
+
 CONST_TABLEKEY_STRMAP = DotMap(
     STDMT="기준월",
     PNU="토지코드",

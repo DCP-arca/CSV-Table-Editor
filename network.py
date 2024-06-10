@@ -1,5 +1,6 @@
 import requests
 from urllib.parse import quote
+import xml.etree.ElementTree as ET
 
 URL_ADDR = "https://api.vworld.kr/req/address"
 URL_PNU = "https://api.vworld.kr/req/data?service=data&request=GetFeature&attrFilter=pnu:=:{pnu}&data=LP_PA_CBND_BUBUN&key={apikey}"
@@ -92,6 +93,41 @@ def get_map_img(api_key, epsg, zoom=18, width=1024, height=1024, basemap="PHOTO_
     res = requests.get(URL_MAP, params=params)
 
     return not ("error" in res.text), res.content
+
+
+def get_api_data(apikey, pnu, api_type):
+    base_url = "http://api.vworld.kr/ned/data/"
+    url = f"{base_url}{api_type}"
+    params = {
+        "key": apikey,
+        "pnu": pnu,
+        "format": "xml",
+        "numOfRows": "1000",
+        "pageNo": "1"
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            print(f"비정상 상태 코드 수신: {response.status_code}")
+            return {}
+
+        response_body = response.content
+        root = ET.fromstring(response_body)
+        total_count = int(root.findtext('.//totalCount'))
+        fields = root.findall('.//field')
+
+        if total_count == 0 or len(fields) < total_count:
+            print("응답에서 충분한 필드를 찾을 수 없거나 총 개수가 올바르지 않습니다")
+            return {}
+
+        field = fields[total_count - 1]
+        data = {elem.tag: elem.text for elem in field}
+        return data
+
+    except requests.exceptions.RequestException as e:
+        print(f"오류가 발생했습니다: {e}")
+        return {}
 
 
 if __name__ == '__main__':

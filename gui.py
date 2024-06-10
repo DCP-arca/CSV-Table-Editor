@@ -2,7 +2,6 @@ import sys
 import time
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QWidget, QSplitter, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QDialog
-from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QSettings, QPoint, QSize, QCoreApplication
 
 from consts import SAVE_KEY_MAP, ENUM_SAVE_COLUMN, ENUM_SAVE_ROW, ERRORCODE_LOAD, ENUM_TABLEVIEW_INITMODE, ENUM_TABLEVIEW_HVFUNC
@@ -16,6 +15,7 @@ from gui_dialog import OptionDialog, LoadOptionDialog, SaveOptionDialog, ImageVi
 from network import get_mapinfo_from_pnu
 from clipboard import clipboard_copy_csvte_info, clipboard_paste_csvte_info
 from theme import apply_theme
+from gui_apitable import APIInfoLayout
 
 TITLE_NAME = "CSV Table Editor"
 TOP_NAME = "mgj"
@@ -174,6 +174,11 @@ class CSVTableEditor(QMainWindow):
         self.mapinfo_table = mapinfo_table
         info_layout.addWidget(mapinfo_table)
 
+        # API Type Selection
+        api_info_layout = APIInfoLayout(self)
+        self.api_info_layout = api_info_layout
+        info_layout.addLayout(api_info_layout)
+
         # 5. buttons_layout
         buttons_layout = QVBoxLayout()
         layout_right.addLayout(buttons_layout)
@@ -234,6 +239,7 @@ class CSVTableEditor(QMainWindow):
                 self.info_table.set_info_text("왼쪽의 테이블을 눌러 자세히 보기!")
             self.search_widget.set_info_text("왼쪽의 버튼을 눌러 필터를 추가!")
             self.mapinfo_table.clear_table()
+            self.api_info_layout.clear()
             self.export_button.setEnabled(True)
             self.openimg_button.setEnabled(True)
         else:
@@ -344,6 +350,10 @@ class CSVTableEditor(QMainWindow):
                 mapinfolist = m
                 epsglist = e
         self.mapinfo_table.set_mapinfo(mapinfolist, epsglist)
+
+        # 3. api_info_layout
+        if pnu:
+            self.api_info_layout.set_pnu(pnu)
 
     def on_value_edit_callback(self, row, col, value):
         target_index = row + (self.table_widget.get_page() - 1) * \
