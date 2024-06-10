@@ -167,13 +167,12 @@ class CSVTableEditor(QMainWindow):
         info_table = InfoTable()
         self.info_table = info_table
         self.info_table.set_info_text("아래 불러오기 버튼으로\n파일을 불러오세요!")
-        info_layout.addWidget(info_table, stretch=2000)
+        info_layout.addWidget(info_table, stretch=1)
 
         # 4. 맵인포 테이블
         mapinfo_table = MapInfoTable()
-        mapinfo_table.setFixedHeight(155)
         self.mapinfo_table = mapinfo_table
-        info_layout.addWidget(mapinfo_table, stretch=1)
+        info_layout.addWidget(mapinfo_table)
 
         # 5. buttons_layout
         buttons_layout = QVBoxLayout()
